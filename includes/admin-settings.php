@@ -111,14 +111,23 @@ function mcp_admin_page() {
         }
     }
     
-    // Handle email delete
-    if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['id']) && isset($_GET['_wpnonce'])) {
-        $id = intval($_GET['id']);
-        if (wp_verify_nonce($_GET['_wpnonce'], 'delete_email_' . $id)) {
-            $wpdb->delete($table_name, array('id' => $id), array('%d'));
-            add_settings_error('mcp_email_messages', 'mcp_email_deleted', 'Email deleted successfully.', 'success');
+    function mcp_handle_delete() {
+        if ( isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['id']) && isset($_GET['_wpnonce']) ) {
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'email_restriction';
+            $id = intval($_GET['id']);
+            
+            if ( wp_verify_nonce($_GET['_wpnonce'], 'delete_email_' . $id) ) {
+                $wpdb->delete($table_name, array('id' => $id), array('%d'));
+                add_settings_error('mcp_email_messages', 'mcp_email_deleted', 'Email deleted successfully.', 'success');
+                
+                // Redirect to the admin page without GET parameters
+                wp_redirect(admin_url('admin.php?page=wp-email-restriction'));
+                exit;
+            }
         }
     }
+    add_action('admin_init', 'mcp_handle_delete');
     
     // Initialize search variables
     $search_term = '';
