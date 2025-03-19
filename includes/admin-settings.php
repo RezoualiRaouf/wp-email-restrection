@@ -48,7 +48,7 @@ function mcp_admin_page() {
         $email = sanitize_email($_POST['email']);
         
         if (!empty($email)) {
-            if (filter_var($email, FILTER_VALIDATE_EMAIL) && str_ends_with($email, '@gmail.com')) {
+            if (filter_var($email, FILTER_VALIDATE_EMAIL) && substr($email, -strlen('@univ-bouira.dz')) === '@univ-bouira.dz') {
                 // Check if email already exists
                 $exists = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $table_name WHERE email = %s", $email));
                 
@@ -69,7 +69,7 @@ function mcp_admin_page() {
                     }
                 }
             } else {
-                add_settings_error('mcp_email_messages', 'mcp_email_invalid', "Invalid email: $email. Only emails with @gmail.com are allowed.", 'error');
+                add_settings_error('mcp_email_messages', 'mcp_email_invalid', "Invalid email: $email. Only emails with @univ-bouira.dz are allowed.", 'error');
             }
         }
     }
@@ -80,7 +80,7 @@ function mcp_admin_page() {
         $email = sanitize_email($_POST['email']);
         
         if (!empty($email) && !empty($email_id)) {
-            if (filter_var($email, FILTER_VALIDATE_EMAIL) && str_ends_with($email, '@gmail.com')) {
+            if (filter_var($email, FILTER_VALIDATE_EMAIL) && substr($email, -strlen('@univ-bouira.dz')) === '@univ-bouira.dz') {
                 // Check if email already exists (excluding the current ID)
                 $exists = $wpdb->get_var($wpdb->prepare(
                     "SELECT COUNT(*) FROM $table_name WHERE email = %s AND id != %d", 
@@ -106,7 +106,7 @@ function mcp_admin_page() {
                     }
                 }
             } else {
-                add_settings_error('mcp_email_messages', 'mcp_email_invalid', "Invalid email: $email. Only emails with @gmail.com are allowed.", 'error');
+                add_settings_error('mcp_email_messages', 'mcp_email_invalid', "Invalid email: $email. Only emails with @univ-bouira.dz are allowed.", 'error');
             }
         }
     }
@@ -166,7 +166,7 @@ function mcp_admin_page() {
                         <th scope="row"><label for="email">Email Address</label></th>
                         <td>
                             <input type="email" name="email" id="email" class="regular-text" placeholder="example@gmail.com" required>
-                            <p class="description">Only @gmail.com addresses are allowed.</p>
+                            <p class="description">Only @univ-bouira.dz addresses are allowed.</p>
                         </td>
                     </tr>
                 </table>
