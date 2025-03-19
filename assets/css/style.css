@@ -34,16 +34,6 @@
     width: 50px;
 }
 
-/* Tooltip styles */
-.dashicons-info-outline {
-    cursor: help;
-    vertical-align: middle;
-    transition: color 0.2s;
-}
-
-.dashicons-info-outline:hover {
-    color: #2271b1;
-}
 
 /* Modal styles */
 #edit-email-modal {

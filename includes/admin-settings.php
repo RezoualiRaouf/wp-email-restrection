@@ -207,10 +207,7 @@ function mcp_admin_page() {
                 <?php wp_nonce_field('search_emails_nonce', 'search_nonce'); ?>
                 <div class="search-box">
                     <input type="text" name="search_term" id="search_term" value="<?php echo esc_attr($search_term); ?>" class="regular-text" placeholder="Search emails...">
-                    <span class="description" style="margin-left: 10px;">
-                        <span class="dashicons dashicons-info-outline" title="Search will find emails containing your search term (partial match)."></span>
-                        <span class="screen-reader-text">Search will find emails containing your search term (partial match).</span>
-                    </span>
+                    
                     <?php submit_button('Search', 'secondary', 'search_emails', false); ?>
                     <?php if (!empty($search_term)) : ?>
                         <a href="<?php echo esc_url(admin_url('admin.php?page=wp-email-restriction')); ?>" class="button">Refresh List</a>
