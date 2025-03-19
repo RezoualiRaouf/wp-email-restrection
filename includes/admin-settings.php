@@ -120,6 +120,28 @@ function mcp_admin_page() {
         }
     }
     
+    // Initialize search variables
+    $search_term = '';
+    $search_where = '';
+    $search_params = array();
+    $total_emails = $wpdb->get_var("SELECT COUNT(*) FROM $table_name");
+    
+    // Handle search form submission
+    // This processes the search term and builds the SQL query parts
+    if (isset($_POST['search_emails']) && isset($_POST['search_nonce']) && wp_verify_nonce($_POST['search_nonce'], 'search_emails_nonce')) {
+        $search_term = isset($_POST['search_term']) ? sanitize_text_field($_POST['search_term']) : '';
+        
+        if (empty($search_term)) {
+            // Display error message if search term is empty
+            add_settings_error('mcp_email_messages', 'mcp_search_empty', 'Please enter a search term.', 'error');
+        } else {
+            // Use esc_like to properly escape the search term for LIKE queries
+            $like_search_term = '%' . $wpdb->esc_like($search_term) . '%';
+            $search_where = "WHERE email LIKE %s";
+            $search_params[] = $like_search_term;
+        }
+    }
+    
     ?>
     <div class="wrap">
         <h1>WP Email Restriction</h1>
@@ -178,37 +200,79 @@ function mcp_admin_page() {
         }
         ?>
         
+        <!-- Search Form -->
+        <div class="card">
+            <h2>Search Emails</h2>
+            <form method="post" action="" id="search-form">
+                <?php wp_nonce_field('search_emails_nonce', 'search_nonce'); ?>
+                <div class="search-box">
+                    <input type="text" name="search_term" id="search_term" value="<?php echo esc_attr($search_term); ?>" class="regular-text" placeholder="Search emails...">
+                    <span class="description" style="margin-left: 10px;">
+                        <span class="dashicons dashicons-info-outline" title="Search will find emails containing your search term (partial match)."></span>
+                        <span class="screen-reader-text">Search will find emails containing your search term (partial match).</span>
+                    </span>
+                    <?php submit_button('Search', 'secondary', 'search_emails', false); ?>
+                    <?php if (!empty($search_term)) : ?>
+                        <a href="<?php echo esc_url(admin_url('admin.php?page=wp-email-restriction')); ?>" class="button">Refresh List</a>
+                    <?php endif; ?>
+                </div>
+            </form>
+        </div>
+        
         <!-- Saved Emails Table -->
         <h2>Allowed Emails</h2>
         <?php
-        // Get emails from database
-        $emails = $wpdb->get_results("SELECT * FROM $table_name ORDER BY id DESC");
+        // Get emails from database with search condition if present
+        if (!empty($search_params)) {
+            // Search query with prepared statement
+            $query = $wpdb->prepare(
+                "SELECT email, time, id FROM $table_name $search_where ORDER BY id DESC",
+                $search_params
+            );
+            $emails = $wpdb->get_results($query);
+            $showing_count = count($emails);
+        } else {
+            // Regular query without search
+            $emails = $wpdb->get_results("SELECT email, time, id FROM $table_name ORDER BY id DESC");
+            $showing_count = count($emails);
+        }
         
         if (!empty($emails)) {
+            // Display count of emails being shown
+            echo '<div class="tablenav top">';
+            echo '<div class="tablenav-pages">';
+            echo '<span class="displaying-num">' . sprintf('Showing %d of %d emails', $showing_count, $total_emails) . '</span>';
+            echo '</div>';
+            echo '</div>';
             ?>
-            <table class="wp-list-table widefat fixed striped">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Email Address</th>
-                        <th>Date Added</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($emails as $email) : ?>
+            <div class="emails-table-container" style="max-height: 400px; overflow-y: auto;">
+                <table class="wp-list-table widefat fixed striped">
+                    <thead>
                         <tr>
-                            <td><?php echo esc_html($email->id); ?></td>
-                            <td class="email-data"><?php echo esc_html($email->email); ?></td>
-                            <td><?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($email->time))); ?></td>
-                            <td>
-                                <button type="button" class="button edit-email" data-id="<?php echo esc_attr($email->id); ?>" data-email="<?php echo esc_attr($email->email); ?>">Edit</button>
-                                <a href="<?php echo wp_nonce_url(admin_url('admin.php?page=wp-email-restriction&action=delete&id=' . $email->id), 'delete_email_' . $email->id); ?>" class="button" onclick="return confirm('Are you sure you want to delete this email?')">Delete</a>
-                            </td>
+                            <th class="column-counter" style="width: 50px;">#</th>
+                            <th class="column-email">Email Address</th>
+                            <th class="column-date">Date Added</th>
+                            <th class="column-actions">Actions</th>
                         </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        <?php 
+                        $counter = 1;
+                        foreach ($emails as $email) : 
+                        ?>
+                            <tr>
+                                <td><?php echo esc_html($counter++); ?></td>
+                                <td class="email-data"><?php echo esc_html($email->email); ?></td>
+                                <td><?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($email->time))); ?></td>
+                                <td>
+                                    <button type="button" class="button edit-email" data-id="<?php echo esc_attr($email->id); ?>" data-email="<?php echo esc_attr($email->email); ?>">Edit</button>
+                                    <a href="<?php echo wp_nonce_url(admin_url('admin.php?page=wp-email-restriction&action=delete&id=' . $email->id), 'delete_email_' . $email->id); ?>" class="button" onclick="return confirm('Are you sure you want to delete this email?')">Delete</a>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
             
             <!-- Edit Email Modal Form (hidden by default) -->
             <div id="edit-email-modal" style="display:none; position:fixed; z-index:100; left:0; top:0; width:100%; height:100%; overflow:auto; background-color:rgba(0,0,0,0.4);">
@@ -235,6 +299,7 @@ function mcp_admin_page() {
             <script>
             jQuery(document).ready(function($) {
                 // Edit Email Modal
+                // Opens the edit email modal and populates it with the selected email's data
                 $('.edit-email').click(function() {
                     var id = $(this).data('id');
                     var email = $(this).data('email');
@@ -244,6 +309,7 @@ function mcp_admin_page() {
                     $('#edit-email-modal').show();
                 });
                 
+                // Close modal when clicking on X
                 $('.close-modal').click(function() {
                     $('#edit-email-modal').hide();
                 });
@@ -254,13 +320,76 @@ function mcp_admin_page() {
                         $('#edit-email-modal').hide();
                     }
                 });
+                
+                // Tooltips for search info
+                $('.dashicons-info-outline').hover(
+                    function() {
+                        $(this).css('color', '#2271b1');
+                    },
+                    function() {
+                        $(this).css('color', '');
+                    }
+                );
+                
+                // Form validation for search
+                $('#search-form').submit(function(e) {
+                    var searchTerm = $('#search_term').val().trim();
+                    if (searchTerm === '') {
+                        alert('Please enter a search term.');
+                        e.preventDefault();
+                    }
+                });
             });
             </script>
             <?php
         } else {
-            echo '<p>No emails have been saved yet.</p>';
+            if (!empty($search_term)) {
+                echo '<div class="notice notice-warning"><p>No emails found matching your search term: <strong>' . esc_html($search_term) . '</strong></p>';
+                echo '<p><a href="' . esc_url(admin_url('admin.php?page=wp-email-restriction')) . '" class="button">Refresh List</a></p></div>';
+            } else {
+                echo '<p>No emails have been saved yet.</p>';
+            }
         }
         ?>
+        
+        <style>
+        /* Custom styles for the emails table */
+        .emails-table-container {
+            border: 1px solid #ccd0d4;
+            border-radius: 4px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .emails-table-container table {
+            margin: 0;
+        }
+        
+        .emails-table-container thead th {
+            position: sticky;
+            top: 0;
+            background-color: #fff;
+            z-index: 10;
+            box-shadow: 0 1px 0 0 #ccd0d4;
+        }
+        
+        .search-box {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        /* Ensures the table expands to fill container */
+        .emails-table-container table {
+            width: 100%;
+        }
+        
+        /* Tooltip styles */
+        .dashicons-info-outline {
+            cursor: help;
+            vertical-align: middle;
+        }
+        </style>
     </div>
     <?php
 }
@@ -271,5 +400,8 @@ function mcp_admin_scripts($hook) {
         return;
     }
     wp_enqueue_script('jquery');
+    
+    // Add custom styles
+    wp_enqueue_style('wp-admin');
 }
 add_action('admin_enqueue_scripts', 'mcp_admin_scripts');
