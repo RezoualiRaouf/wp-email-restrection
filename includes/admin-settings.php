@@ -57,6 +57,24 @@ function mcp_create_db_table() {
     dbDelta($sql);
 }
 
+// Handle email deletion action
+function mcp_handle_delete() {
+    if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['id']) && isset($_GET['_wpnonce'])) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'email_restriction';
+        $id = intval($_GET['id']);
+        
+        if (wp_verify_nonce($_GET['_wpnonce'], 'delete_email_' . $id)) {
+            $wpdb->delete($table_name, array('id' => $id), array('%d'));
+            add_settings_error('mcp_email_messages', 'mcp_email_deleted', 'Email deleted successfully.', 'success');
+            
+            // Redirect to the admin page without GET parameters
+            wp_redirect(admin_url('admin.php?page=wp-email-restriction'));
+            exit;
+        }
+    }
+}
+add_action('admin_init', 'mcp_handle_delete');
 
 // MAIN ADMIN PAGE FUNCTION
 
@@ -71,32 +89,13 @@ function mcp_admin_page() {
     if($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
         mcp_create_db_table();
     }
-
-    // Handle email deletion action
-    function mcp_handle_delete() {
-        if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['id']) && isset($_GET['_wpnonce'])) {
-            global $wpdb;
-            $table_name = $wpdb->prefix . 'email_restriction';
-            $id = intval($_GET['id']);
-
-            if (wp_verify_nonce($_GET['_wpnonce'], 'delete_email_' . $id)) {
-                $wpdb->delete($table_name, array('id' => $id), array('%d'));
-                add_settings_error('mcp_email_messages', 'mcp_email_deleted', 'Email deleted successfully.', 'success');
-
-                // Redirect to the admin page without GET parameters
-                wp_redirect(admin_url('admin.php?page=wp-email-restriction'));
-                exit;
-            }
-        }
-    }
-    add_action('admin_init', 'mcp_handle_delete');
-
+    
     // Handle email add form submission
     if (isset($_POST['add_email']) && isset($_POST['email_nonce']) && wp_verify_nonce($_POST['email_nonce'], 'add_email_nonce')) {
         $email = sanitize_email($_POST['email']);
         
         if (!empty($email)) {
-            if (filter_var($email, FILTER_VALIDATE_EMAIL) && str_ends_with($email, '@gmail.com')) {
+            if (filter_var($email, FILTER_VALIDATE_EMAIL) && substr($email, -strlen('@univ-bouira.dz')) === '@univ-bouira.dz') {
                 // Check if email already exists
                 $exists = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $table_name WHERE email = %s", $email));
                 
@@ -117,7 +116,7 @@ function mcp_admin_page() {
                     }
                 }
             } else {
-                add_settings_error('mcp_email_messages', 'mcp_email_invalid', "Invalid email: $email. Only emails with @gmail.com are allowed.", 'error');
+                add_settings_error('mcp_email_messages', 'mcp_email_invalid', "Invalid email: $email. Only emails with @univ-bouira.dz are allowed.", 'error');
             }
         }
     }
@@ -128,7 +127,7 @@ function mcp_admin_page() {
         $email = sanitize_email($_POST['email']);
         
         if (!empty($email) && !empty($email_id)) {
-            if (filter_var($email, FILTER_VALIDATE_EMAIL) && str_ends_with($email, '@gmail.com')) {
+            if (filter_var($email, FILTER_VALIDATE_EMAIL) && substr($email, -strlen('@univ-bouira.dz')) === '@univ-bouira.dz') {
                 // Check if email already exists (excluding the current ID)
                 $exists = $wpdb->get_var($wpdb->prepare(
                     "SELECT COUNT(*) FROM $table_name WHERE email = %s AND id != %d", 
@@ -154,7 +153,7 @@ function mcp_admin_page() {
                     }
                 }
             } else {
-                add_settings_error('mcp_email_messages', 'mcp_email_invalid', "Invalid email: $email. Only emails with @gmail.com are allowed.", 'error');
+                add_settings_error('mcp_email_messages', 'mcp_email_invalid', "Invalid email: $email. Only emails with @univ-bouira.dz are allowed.", 'error');
             }
         }
     }
@@ -201,31 +200,11 @@ function mcp_admin_page() {
         <h1>WP Email Restriction</h1>
         <?php settings_errors('mcp_email_messages'); ?>
         
-<<<<<<< HEAD
         <!-- Tabs Navigation -->
         <h2 class="nav-tab-wrapper">
             <a href="<?php echo admin_url('admin.php?page=wp-email-restriction&tab=main'); ?>" class="nav-tab <?php echo $active_tab == 'main' ? 'nav-tab-active' : ''; ?>">Main</a>
             <a href="<?php echo admin_url('admin.php?page=wp-email-restriction&tab=settings'); ?>" class="nav-tab <?php echo $active_tab == 'settings' ? 'nav-tab-active' : ''; ?>">Settings</a>
         </h2>
-=======
-        <!-- Add Email Form -->
-        <div class="card">
-            <h2>Add New Gmail Address</h2>
-            <form method="post" action="">
-                <?php wp_nonce_field('add_email_nonce', 'email_nonce'); ?>
-                <table class="form-table">
-                    <tr>
-                        <th scope="row"><label for="email">Email Address</label></th>
-                        <td>
-                            <input type="email" name="email" id="email" class="regular-text" placeholder="example@gmail.com" required>
-                            <p class="description">Only @gmail.com addresses are allowed.</p>
-                        </td>
-                    </tr>
-                </table>
-                <?php submit_button('Add Email', 'primary', 'add_email'); ?>
-            </form>
-        </div>
->>>>>>> parent of d9f8ed4 (changed condition to check email format)
         
         <!-- Main Tab Content -->
         <div id="tab-main" class="tab-content" <?php echo $active_tab != 'main' ? 'style="display:none;"' : ''; ?>>
@@ -450,6 +429,77 @@ function mcp_admin_page() {
             });
         });
         </script>
+        <style>
+              /* Tab styles */
+  .nav-tab-wrapper {
+    margin-bottom: 20px;
+}
+
+.tab-content {
+    padding: 15px 0;
+}
+
+/* Custom styles for the emails table */
+.emails-table-container {
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.emails-table-container table {
+    margin: 0;
+    width: 100%;
+}
+
+.emails-table-container thead th {
+    position: sticky;
+    top: 0;
+    background-color: #fff;
+    z-index: 10;
+    box-shadow: 0 1px 0 0 #ccd0d4;
+}
+
+.search-box {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+/* Tooltip styles */
+.dashicons-info-outline {
+    cursor: help;
+    vertical-align: middle;
+}
+
+/* Settings tab styles */
+.settings-placeholder {
+    background-color: #f9f9f9;
+    border: 1px dashed #ccc;
+    padding: 20px;
+    margin-top: 15px;
+    border-radius: 4px;
+}
+
+.settings-placeholder h3 {
+    margin-top: 0;
+    color: #555;
+}
+
+.card {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    padding: 15px;
+}
+
+.card h2 {
+    margin-top: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+        </style>
     </div>
     <?php
 }
