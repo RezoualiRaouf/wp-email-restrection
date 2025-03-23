@@ -57,24 +57,6 @@ function mcp_create_db_table() {
     dbDelta($sql);
 }
 
-// Handle email deletion action
-function mcp_handle_delete() {
-    if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['id']) && isset($_GET['_wpnonce'])) {
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'email_restriction';
-        $id = intval($_GET['id']);
-        
-        if (wp_verify_nonce($_GET['_wpnonce'], 'delete_email_' . $id)) {
-            $wpdb->delete($table_name, array('id' => $id), array('%d'));
-            add_settings_error('mcp_email_messages', 'mcp_email_deleted', 'Email deleted successfully.', 'success');
-            
-            // Redirect to the admin page without GET parameters
-            wp_redirect(admin_url('admin.php?page=wp-email-restriction'));
-            exit;
-        }
-    }
-}
-add_action('admin_init', 'mcp_handle_delete');
 
 // MAIN ADMIN PAGE FUNCTION
 
@@ -89,7 +71,26 @@ function mcp_admin_page() {
     if($wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name) {
         mcp_create_db_table();
     }
-    
+
+    // Handle email deletion action
+    function mcp_handle_delete() {
+        if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['id']) && isset($_GET['_wpnonce'])) {
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'email_restriction';
+            $id = intval($_GET['id']);
+
+            if (wp_verify_nonce($_GET['_wpnonce'], 'delete_email_' . $id)) {
+                $wpdb->delete($table_name, array('id' => $id), array('%d'));
+                add_settings_error('mcp_email_messages', 'mcp_email_deleted', 'Email deleted successfully.', 'success');
+
+                // Redirect to the admin page without GET parameters
+                wp_redirect(admin_url('admin.php?page=wp-email-restriction'));
+                exit;
+            }
+        }
+    }
+    add_action('admin_init', 'mcp_handle_delete');
+
     // Handle email add form submission
     if (isset($_POST['add_email']) && isset($_POST['email_nonce']) && wp_verify_nonce($_POST['email_nonce'], 'add_email_nonce')) {
         $email = sanitize_email($_POST['email']);
