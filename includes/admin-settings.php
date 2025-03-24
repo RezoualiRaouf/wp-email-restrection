@@ -61,7 +61,7 @@ add_action('admin_init', 'mcp_handle_delete');
 function mcp_display_admin_notices() {
     if ($message = get_transient('mcp_email_notice_delete')) {
         echo '<div class="updated notice is-dismissible"><p>' . esc_html($message) . '</p></div>';
-        delete_transient('mcp_email_notice'); // Remove message after displaying
+        delete_transient('mcp_email_notice_delete'); // Remove message after displaying
     }
 }
 add_action('admin_notices', 'mcp_display_admin_notices');
