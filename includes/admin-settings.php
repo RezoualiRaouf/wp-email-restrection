@@ -336,9 +336,26 @@ function mcp_admin_page() {
             </div>
         </div>
         <!-- Uploead Tab Content -->
-        <div id="tab-uploads" class="tab-content" <?php echo $active_tab != 'uploads' ? 'style="display:none;"' : '';?>>
-                    <h2>Upload only json or csv files</h2>
+            <div id="tab-uploads" class="tab-content" <?php echo $active_tab != 'uploads' ? 'style="display:none;"' : '';?>>
+        <h2>Upload a CSV / json file</h2>
+            <form method="post" action="" enctype="multipart/form-data">
+                <?php wp_nonce_field('file_upload_nonce', 'file_upload_nonce'); ?>
+                <input type="file" name="uploaded_file" accept=".json, .csv" required>
+                <?php submit_button('Upload File', 'primary', 'upload_file'); ?>
+            </form>
+
+        <?php
+        // Display messages (success or error)
+        if (isset($_GET['upload_status'])) {
+            if ($_GET['upload_status'] == 'success') {
+                echo '<div class="notice notice-success"><p>File uploaded successfully!</p></div>';
+            } elseif ($_GET['upload_status'] == 'error') {
+                echo '<div class="notice notice-error"><p>File upload failed. Please try again.</p></div>';
+            }
+        }
+        ?>
         </div>
+        
          <!-- JavaScript -->
             <script>
                     jQuery(document).ready(function($) {
@@ -383,7 +400,6 @@ function mcp_admin_page() {
                             e.preventDefault();
                         }
                     });
-                });
         </script>
         <style>
             /* Tab styles */
