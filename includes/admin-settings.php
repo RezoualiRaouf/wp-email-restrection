@@ -215,7 +215,7 @@ function mcp_admin_page() {
         <h2 class="nav-tab-wrapper">
             <a href="<?php echo admin_url('admin.php?page=wp-email-restriction&tab=main'); ?>" class="nav-tab <?php echo $active_tab == 'main' ? 'nav-tab-active' : ''; ?>">Main</a>
             <a href="<?php echo admin_url('admin.php?page=wp-email-restriction&tab=settings'); ?>" class="nav-tab <?php echo $active_tab == 'settings' ? 'nav-tab-active' : ''; ?>">Settings</a>
-            <a href="<?php echo admin_url('admim.php?page=wp-email-restriction&tab=uploads') ?>" class="nav-tab <?php echo$active_tab == 'uploads' ? 'nav-tab-active' : ''; ?>">Uploads</a>
+            <a href="<?php echo admin_url('admin.php?page=wp-email-restriction&tab=uploads') ?>" class="nav-tab <?php echo $active_tab == 'uploads' ? 'nav-tab-active' : ''; ?>">Uploads</a>
         </h2>
         
         <!-- Main Tab Content -->
@@ -252,7 +252,7 @@ function mcp_admin_page() {
                     <table class="wp-list-table widefat fixed striped">
                         <thead>
                             <tr>
-                                <th class="column-counter" style="width: 50px;">#</th>
+                                <th class="column-counter" style="width: 50px;">ID</th>
                                 <th class="column-email">Email Address</th>
                                 <th class="column-date">Date Added</th>
                                 <th class="column-actions">Actions</th>
@@ -335,9 +335,56 @@ function mcp_admin_page() {
                     </div>    
             </div>
         </div>
+        <!-- Uploead Tab Content -->
         <div id="tab-uploads" class="tab-content" <?php echo $active_tab != 'uploads' ? 'style="display:none;"' : '';?>>
                     <h2>Upload only json or csv files</h2>
         </div>
+         <!-- JavaScript -->
+            <script>
+                    jQuery(document).ready(function($) {
+                        function activateTab(tabId) {
+                            $('.tab-content').hide();
+                            $('#' + tabId).show();
+                        }
+
+                        // Get tab from URL or set default
+                        let urlParams = new URLSearchParams(window.location.search);
+                        let tab = urlParams.get('tab') || 'main'; // Default to 'main' tab
+
+                        activateTab('tab-' + tab);
+                    });
+
+                    // Edit Email Modal
+                    $('.edit-email').click(function() {
+                        var id = $(this).data('id');
+                        var email = $(this).data('email');
+                        $('#email_id').val(id);
+                        $('#email_edit').val(email);
+                        $('#edit-email-modal').show();
+                    });
+
+                    // Close modal when clicking on X
+                    $('.close-modal').click(function() {
+                        $('#edit-email-modal').hide();
+                    });
+
+                    // Close modal when clicking outside
+                    $(window).click(function(event) {
+                        if ($(event.target).is('#edit-email-modal')) {
+                            $('#edit-email-modal').hide();
+                            }
+                        });
+
+                    // Form validation for search
+                    $('#search-form').submit(function(e) {
+                        var searchTerm = $('#search_term').val().trim();
+                        if (searchTerm === '') {
+                            alert('Please enter a search term.');
+                            e.preventDefault();
+                        }
+                    });
+                });
+        </script>
         <style>
             /* Tab styles */
             .nav-tab-wrapper {
@@ -408,6 +455,17 @@ function mcp_admin_page() {
                 padding-bottom: 10px;
                 border-bottom: 1px solid #eee;
             }
+            #edit-email-modal{
+                 style="display:none;
+                 position:fixed;
+                 z-index:100;
+                 left:0;
+                 top:0;
+                 width:100%;
+                 height:100%;
+                 overflow:auto;
+                 background-color:rgba(0,0,0,0.4);
+                }
         </style>
     </div>
     <?php
