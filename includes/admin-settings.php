@@ -215,29 +215,12 @@ function mcp_admin_page() {
         <h2 class="nav-tab-wrapper">
             <a href="<?php echo admin_url('admin.php?page=wp-email-restriction&tab=main'); ?>" class="nav-tab <?php echo $active_tab == 'main' ? 'nav-tab-active' : ''; ?>">Main</a>
             <a href="<?php echo admin_url('admin.php?page=wp-email-restriction&tab=settings'); ?>" class="nav-tab <?php echo $active_tab == 'settings' ? 'nav-tab-active' : ''; ?>">Settings</a>
+            <a href="<?php echo admin_url('admim.php?page=wp-email-restriction&tab=uploads') ?>" class="nav-tab <?php echo$active_tab == 'uploads' ? 'nav-tab-active' : ''; ?>">Uploads</a>
         </h2>
         
         <!-- Main Tab Content -->
         <div id="tab-main" class="tab-content" <?php echo $active_tab != 'main' ? 'style="display:none;"' : ''; ?>>
-            <!-- Add Email Form -->
-            <div class="card">
-                <h2>Add New User</h2>
-                <form method="post" action="">
-                    <?php wp_nonce_field('add_email_nonce', 'email_nonce'); ?>
-                    <input type="hidden" name="tab" value="main">
-                    <table class="form-table">
-                        <tr>
-                            <th scope="row"><label for="email">Email Address</label></th>
-                            <td>
-                                <input type="email" name="email" id="email" class="regular-text" placeholder="example@univ-bouira.dz" required>
-                                <p class="description">Only @univ-bouira.dz addresses are allowed.</p>
-                            </td>
-                        </tr>
-                    </table>
-                    <?php submit_button('Add Email', 'primary', 'add_email'); ?>
-                </form>
-            </div>
-            
+
             <!-- Search Form -->
             <div class="card">
                 <h2>Search Emails</h2>
@@ -331,20 +314,30 @@ function mcp_admin_page() {
         <!-- Settings Tab Content -->
         <div id="tab-settings" class="tab-content" <?php echo $active_tab != 'settings' ? 'style="display:none;"' : ''; ?>>
             <div class="card">
-                <h2>Plugin Settings</h2>
-                <p>This tab is reserved for future settings. Currently, there are no settings available.</p>
-                <div class="settings-placeholder">
-                    <h3>Coming Soon</h3>
-                    <ul>
-                        <li>Domain restriction settings</li>
-                        <li>Email validation rules</li>
-                        <li>Export/Import functionality</li>
-                        <li>Notification settings</li>
-                    </ul>
-                </div>
+                <h2>Users Settings</h2>
+                    <!-- Add Email Form -->
+                    <div class="card">
+                        <h2>Add New User</h2>
+                        <form method="post" action="">
+                        <?php wp_nonce_field('add_email_nonce', 'email_nonce'); ?>
+                            <input type="hidden" name="tab" value="main">
+                            <table class="form-table">
+                                <tr>
+                                    <th scope="row"><label for="email">Email Address</label></th>
+                                    <td>
+                                        <input type="email" name="email" id="email" class="regular-text" placeholder="example@univ-bouira.dz" required>
+                                        <p class="description">Only @univ-bouira.dz addresses are allowed.</p>
+                                    </td>
+                                </tr>
+                            </table>
+                            <?php submit_button('Add Email', 'primary', 'add_email'); ?>
+                        </form>
+                    </div>    
             </div>
         </div>
-        
+        <div id="tab-uploads" class="tab-content" <?php echo $active_tab != 'uploads' ? 'style="display:none;"' : '';?>>
+                    <h2>Upload only json or csv files</h2>
+        </div>
         <style>
             /* Tab styles */
             .nav-tab-wrapper {
