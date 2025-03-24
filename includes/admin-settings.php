@@ -238,41 +238,6 @@ function mcp_admin_page() {
                 </form>
             </div>
             
-            <!-- Migrate existing emails if needed -->
-            <?php
-            // Check if we need to migrate old emails
-            $options = get_option('mcp_options');
-            $allowed_emails = isset($options['allowed_emails']) ? $options['allowed_emails'] : '';
-            
-            if (!empty($allowed_emails)) {
-                $emails = explode("\n", $allowed_emails);
-                $migrated = false;
-                
-                foreach ($emails as $email) {
-                    $email = trim($email);
-                    if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL) && str_ends_with($email, '@gmail.com')) {
-                        // Check if email already exists
-                        $exists = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $table_name WHERE email = %s", $email));
-                        
-                        if (!$exists) {
-                            $wpdb->insert(
-                                $table_name,
-                                array('email' => $email),
-                                array('%s')
-                            );
-                            $migrated = true;
-                        }
-                    }
-                }
-                
-                if ($migrated) {
-                    // Clear the old option after migration
-                    update_option('mcp_options', array('allowed_emails' => ''));
-                    echo '<div class="notice notice-success"><p>Existing emails have been migrated to the database.</p></div>';
-                }
-            }
-            ?>
-            
             <!-- Search Form -->
             <div class="card">
                 <h2>Search Emails</h2>
