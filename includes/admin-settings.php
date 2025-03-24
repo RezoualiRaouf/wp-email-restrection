@@ -37,6 +37,35 @@ function mcp_admin_scripts($hook) {
 }
 add_action('admin_enqueue_scripts', 'mcp_admin_scripts');
 
+function mcp_handle_delete() {
+    if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['id']) && isset($_GET['_wpnonce'])) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'email_restriction';
+        $id = intval($_GET['id']);
+        
+        if (wp_verify_nonce($_GET['_wpnonce'], 'delete_email_' . $id)) {
+            $result = $wpdb->delete($table_name, array('id' => $id), array('%d'));
+            if ($result !== false && $wpdb->rows_affected > 0) {
+                set_transient('mcp_email_notice_delete', 'Email deleted successfully.', 30);
+            } else {
+                set_transient('mcp_email_notice_delete', 'Failed to delete email. Database error: ' . $wpdb->last_error, 30);
+            }
+            // Redirect to the admin page without GET parameters
+            wp_redirect(admin_url('admin.php?page=wp-email-restriction'));
+            exit;
+        }
+    }
+}
+add_action('admin_init', 'mcp_handle_delete');
+
+function mcp_display_admin_notices() {
+    if ($message = get_transient('mcp_email_notice_delete')) {
+        echo '<div class="updated notice is-dismissible"><p>' . esc_html($message) . '</p></div>';
+        delete_transient('mcp_email_notice'); // Remove message after displaying
+    }
+}
+add_action('admin_notices', 'mcp_display_admin_notices');
+
 // Create custom table on plugin activation
 function mcp_create_db_table() {
     global $wpdb;
@@ -58,23 +87,6 @@ function mcp_create_db_table() {
 }
 
 // Handle email deletion action
-function mcp_handle_delete() {
-    if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['id']) && isset($_GET['_wpnonce'])) {
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'email_restriction';
-        $id = intval($_GET['id']);
-        
-        if (wp_verify_nonce($_GET['_wpnonce'], 'delete_email_' . $id)) {
-            $wpdb->delete($table_name, array('id' => $id), array('%d'));
-            add_settings_error('mcp_email_messages', 'mcp_email_deleted', 'Email deleted successfully.', 'success');
-            
-            // Redirect to the admin page without GET parameters
-            wp_redirect(admin_url('admin.php?page=wp-email-restriction'));
-            exit;
-        }
-    }
-}
-add_action('admin_init', 'mcp_handle_delete');
 
 // MAIN ADMIN PAGE FUNCTION
 
@@ -110,9 +122,9 @@ function mcp_admin_page() {
                     );
                     
                     if ($result) {
-                        add_settings_error('mcp_email_messages', 'mcp_email_success', 'Email added successfully.', 'success');
+                        add_settings_error('mcp_email_messages', 'mcp_email_add_success', 'Email added successfully.', 'success');
                     } else {
-                        add_settings_error('mcp_email_messages', 'mcp_email_error', 'Failed to add email. Database error: ' . $wpdb->last_error, 'error');
+                        add_settings_error('mcp_email_messages', 'mcp_email_add_error', 'Failed to add email. Database error: ' . $wpdb->last_error, 'error');
                     }
                 }
             } else {
@@ -157,7 +169,6 @@ function mcp_admin_page() {
             }
         }
     }
-    
     // Initialize search variables
     $search_term = '';
     $search_where = '';
@@ -369,136 +380,76 @@ function mcp_admin_page() {
             </div>
         </div>
         
-        
-        <!-- JavaScript -->
-        <script>
-        jQuery(document).ready(function($) {
-            // Tab functionality
-            function activateTab(tabId) {
-                // Hide all tab contents
-                $('.tab-content').hide();
-                
-                // Show the selected tab content
-                $('#' + tabId).show();
-            }
-            
-            // If URL has tab parameter, activate that tab
-            <?php if (isset($_GET['tab'])) : ?>
-            activateTab('tab-<?php echo esc_js($active_tab); ?>');
-            <?php endif; ?>
-            
-            // Edit Email Modal
-            $('.edit-email').click(function() {
-                var id = $(this).data('id');
-                var email = $(this).data('email');
-                
-                $('#email_id').val(id);
-                $('#email_edit').val(email);
-                $('#edit-email-modal').show();
-            });
-            
-            // Close modal when clicking on X
-            $('.close-modal').click(function() {
-                $('#edit-email-modal').hide();
-            });
-            
-            // Close modal when clicking outside
-            $(window).click(function(event) {
-                if ($(event.target).is('#edit-email-modal')) {
-                    $('#edit-email-modal').hide();
-                }
-            });
-            
-            // Tooltips for search info
-            $('.dashicons-info-outline').hover(
-                function() {
-                    $(this).css('color', '#2271b1');
-                },
-                function() {
-                    $(this).css('color', '');
-                }
-            );
-            
-            // Form validation for search
-            $('#search-form').submit(function(e) {
-                var searchTerm = $('#search_term').val().trim();
-                if (searchTerm === '') {
-                    alert('Please enter a search term.');
-                    e.preventDefault();
-                }
-            });
-        });
-        </script>
         <style>
-              /* Tab styles */
-  .nav-tab-wrapper {
-    margin-bottom: 20px;
-}
+            /* Tab styles */
+            .nav-tab-wrapper {
+                margin-bottom: 20px;
+            }
 
-.tab-content {
-    padding: 15px 0;
-}
+            .tab-content {
+                padding: 15px 0;
+            }
 
-/* Custom styles for the emails table */
-.emails-table-container {
-    border: 1px solid #ccd0d4;
-    border-radius: 4px;
-    max-height: 400px;
-    overflow-y: auto;
-}
+            /* Custom styles for the emails table */
+            .emails-table-container {
+                border: 1px solid #ccd0d4;
+                border-radius: 4px;
+                max-height: 400px;
+                overflow-y: auto;
+            }
 
-.emails-table-container table {
-    margin: 0;
-    width: 100%;
-}
+            .emails-table-container table {
+                margin: 0;
+                width: 100%;
+            }
 
-.emails-table-container thead th {
-    position: sticky;
-    top: 0;
-    background-color: #fff;
-    z-index: 10;
-    box-shadow: 0 1px 0 0 #ccd0d4;
-}
+            .emails-table-container thead th {
+                position: sticky;
+                top: 0;
+                background-color: #fff;
+                z-index: 10;
+                box-shadow: 0 1px 0 0 #ccd0d4;
+            }
 
-.search-box {
-    display: flex;
-    align-items: center;
-    margin-bottom: 10px;
-}
+            .search-box {
+                display: flex;
+                align-items: center;
+                margin-bottom: 10px;
+            }
 
-/* Tooltip styles */
-.dashicons-info-outline {
-    cursor: help;
-    vertical-align: middle;
-}
+            /* Tooltip styles */
+            .dashicons-info-outline {
+                cursor: help;
+                vertical-align: middle;
+            }
 
-/* Settings tab styles */
-.settings-placeholder {
-    background-color: #f9f9f9;
-    border: 1px dashed #ccc;
-    padding: 20px;
-    margin-top: 15px;
-    border-radius: 4px;
-}
+            /* Settings tab styles */
+            .settings-placeholder {
+                background-color: #f9f9f9;
+                border: 1px dashed #ccc;
+                padding: 20px;
+                margin-top: 15px;
+                border-radius: 4px;
+            }
 
-.settings-placeholder h3 {
-    margin-top: 0;
-    color: #555;
-}
+            .settings-placeholder h3 {
+                margin-top: 0;
+                color: #555;
+            }
 
-.card {
-    background: #fff;
-    border: 1px solid #ccd0d4;
-    border-radius: 4px;
-    margin-bottom: 20px;
-    padding: 15px;
-}
+            .card {
+                background: #fff;
+                border: 1px solid #ccd0d4;
+                border-radius: 4px;
+                margin-bottom: 20px;
+                padding: 15px;
+            }
 
-.card h2 {
-    margin-top: 0;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #eee;
-}
+            .card h2 {
+                margin-top: 0;
+                padding-bottom: 10px;
+                border-bottom: 1px solid #eee;
+            }
         </style>
     </div>
     <?php
