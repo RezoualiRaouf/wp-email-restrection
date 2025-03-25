@@ -334,6 +334,79 @@ function mcp_admin_page() {
                         </form>
                     </div>    
             </div>
+
+            <h2>Allowed Emails</h2>
+            <?php if (!empty($emails)) : ?>
+                <!-- Display count of emails being shown -->
+                <div class="tablenav top">
+                    <div class="tablenav-pages">
+                        <span class="displaying-num"><?php echo sprintf('Showing %d of %d emails', $showing_count, $total_emails); ?></span>
+                    </div>
+                </div>
+                
+                <div class="emails-table-container">
+                    <table class="wp-list-table widefat fixed striped">
+                        <thead>
+                            <tr>
+                                <th class="column-counter" style="width: 50px;">ID</th>
+                                <th class="column-email">Email Address</th>
+                                <th class="column-date">Date Added</th>
+                                <th class="column-actions">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php 
+                            $counter = 1;
+                            foreach ($emails as $email) : 
+                            ?>
+                                <tr>
+                                    <td><?php echo esc_html($counter++); ?></td>
+                                    <td class="email-data"><?php echo esc_html($email->email); ?></td>
+                                    <td><?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($email->time))); ?></td>
+                                    <td>
+                                        <button type="button" class="button edit-email" data-id="<?php echo esc_attr($email->id); ?>" data-email="<?php echo esc_attr($email->email); ?>">Edit</button>
+                                        <a href="<?php echo wp_nonce_url(admin_url('admin.php?page=wp-email-restriction&tab=main&action=delete&id=' . $email->id), 'delete_email_' . $email->id); ?>" class="button" onclick="return confirm('Are you sure you want to delete this email?')">Delete</a>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Edit Email Modal Form (hidden by default) -->
+                <div id="edit-email-modal" style="display:none; position:fixed; z-index:100; left:0; top:0; width:100%; height:100%; overflow:auto; background-color:rgba(0,0,0,0.4);">
+                    <div style="background-color:#fff; margin:10% auto; padding:20px; border:1px solid #888; width:50%; border-radius:5px;">
+                        <span class="close-modal" style="color:#aaa; float:right; font-size:28px; font-weight:bold; cursor:pointer;">&times;</span>
+                        <h2>Edit Email</h2>
+                        <form method="post" action="">
+                            <?php wp_nonce_field('email_edit_nonce', 'email_edit_nonce'); ?>
+                            <input type="hidden" name="tab" value="main">
+                            <input type="hidden" id="email_id" name="email_id" value="">
+                            <table class="form-table">
+                                <tr>
+                                    <th scope="row"><label for="email_edit">Email Address</label></th>
+                                    <td>
+                                        <input type="email" name="email" id="email_edit" class="regular-text" required>
+                                        <p class="description">Only @univ-bouira.dz addresses are allowed.</p>
+                                    </td>
+                                </tr>
+                            </table>
+                            <?php submit_button('Save Changes', 'primary', 'edit_email'); ?>
+                        </form>
+                    </div>
+                </div>
+            <?php else : ?>
+                <?php if (!empty($search_term)) : ?>
+                    <div class="notice notice-warning">
+                        <p>No emails found matching your search term: <strong><?php echo esc_html($search_term); ?></strong></p>
+                        <p><a href="<?php echo esc_url(admin_url('admin.php?page=wp-email-restriction&tab=main')); ?>" class="button">Refresh List</a></p>
+                    </div>
+                <?php else : ?>
+                    <p>No emails have been saved yet.</p>
+                <?php endif; ?>
+            <?php endif; ?>
+        </div>
+
         </div>
         <!-- Uploead Tab Content -->
             <div id="tab-uploads" class="tab-content" <?php echo $active_tab != 'uploads' ? 'style="display:none;"' : '';?>>
@@ -343,7 +416,7 @@ function mcp_admin_page() {
                 <input type="file" name="uploaded_file" accept=".json, .csv" required>
                 <?php submit_button('Upload File', 'primary', 'upload_file'); ?>
             </form>
-
+                    
         <?php
         // Display messages (success or error)
         if (isset($_GET['upload_status'])) {
