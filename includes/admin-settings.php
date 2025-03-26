@@ -364,7 +364,7 @@ function mcp_admin_page() {
                                     <td class="email-data"><?php echo esc_html($email->email); ?></td>
                                     <td><?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($email->time))); ?></td>
                                     <td>
-                                        <button type="button" class="button edit-email" data-id="<?php echo esc_attr($email->id); ?>" data-email="<?php echo esc_attr($email->email); ?>">Edit</button>
+                                        <button type="button" class="button edit-email" id="btn-email-edit" data-id="<?php echo esc_attr($email->id); ?>" data-email="<?php echo esc_attr($email->email); ?>">Edit</button>
                                         <a href="<?php echo wp_nonce_url(admin_url('admin.php?page=wp-email-restriction&tab=main&action=delete&id=' . $email->id), 'delete_email_' . $email->id); ?>" class="button" onclick="return confirm('Are you sure you want to delete this email?')">Delete</a>
                                     </td>
                                 </tr>
@@ -428,134 +428,67 @@ function mcp_admin_page() {
         }
         ?>
         </div>
-        
-         <!-- JavaScript -->
-            <script>
-                    jQuery(document).ready(function($) {
-                        function activateTab(tabId) {
-                            $('.tab-content').hide();
-                            $('#' + tabId).show();
-                        }
+        <?php wp_enqueue_script('jquery');?>
 
-                        // Get tab from URL or set default
-                        let urlParams = new URLSearchParams(window.location.search);
-                        let tab = urlParams.get('tab') || 'main'; // Default to 'main' tab
-
-                        activateTab('tab-' + tab);
-                    });
-
-                    // Edit Email Modal
-                    $('.edit-email').click(function() {
-                        var id = $(this).data('id');
-                        var email = $(this).data('email');
-                        $('#email_id').val(id);
-                        $('#email_edit').val(email);
-                        $('#edit-email-modal').show();
-                    });
-
-                    // Close modal when clicking on X
-                    $('.close-modal').click(function() {
-                        $('#edit-email-modal').hide();
-                    });
-
-                    // Close modal when clicking outside
-                    $(window).click(function(event) {
-                        if ($(event.target).is('#edit-email-modal')) {
-                            $('#edit-email-modal').hide();
-                            }
-                        });
-
-                    // Form validation for search
-                    $('#search-form').submit(function(e) {
-                        var searchTerm = $('#search_term').val().trim();
-                        if (searchTerm === '') {
-                            alert('Please enter a search term.');
-                            e.preventDefault();
-                        }
-                    });
-        </script>
-        <style>
-            /* Tab styles */
-            .nav-tab-wrapper {
-                margin-bottom: 20px;
+  <!-- JavaScript -->
+        <script>
+        jQuery(document).ready(function($) {
+            // Tab functionality
+            function activateTab(tabId) {
+                // Hide all tab contents
+                $('.tab-content').hide();
+                
+                // Show the selected tab content
+                $('#' + tabId).show();
             }
-
-            .tab-content {
-                padding: 15px 0;
-            }
-
-            /* Custom styles for the emails table */
-            .emails-table-container {
-                border: 1px solid #ccd0d4;
-                border-radius: 4px;
-                max-height: 400px;
-                overflow-y: auto;
-            }
-
-            .emails-table-container table {
-                margin: 0;
-                width: 100%;
-            }
-
-            .emails-table-container thead th {
-                position: sticky;
-                top: 0;
-                background-color: #fff;
-                z-index: 10;
-                box-shadow: 0 1px 0 0 #ccd0d4;
-            }
-
-            .search-box {
-                display: flex;
-                align-items: center;
-                margin-bottom: 10px;
-            }
-
-            /* Tooltip styles */
-            .dashicons-info-outline {
-                cursor: help;
-                vertical-align: middle;
-            }
-
-            /* Settings tab styles */
-            .settings-placeholder {
-                background-color: #f9f9f9;
-                border: 1px dashed #ccc;
-                padding: 20px;
-                margin-top: 15px;
-                border-radius: 4px;
-            }
-
-            .settings-placeholder h3 {
-                margin-top: 0;
-                color: #555;
-            }
-
-            .card {
-                background: #fff;
-                border: 1px solid #ccd0d4;
-                border-radius: 4px;
-                margin-bottom: 20px;
-                padding: 15px;
-            }
-
-            .card h2 {
-                margin-top: 0;
-                padding-bottom: 10px;
-                border-bottom: 1px solid #eee;
-            }
-            #edit-email-modal{
-                 style="display:none;
-                 position:fixed;
-                 z-index:100;
-                 left:0;
-                 top:0;
-                 width:100%;
-                 height:100%;
-                 overflow:auto;
-                 background-color:rgba(0,0,0,0.4);
+            
+            // If URL has tab parameter, activate that tab
+            <?php if (isset($_GET['tab'])) : ?>
+            activateTab('tab-<?php echo esc_js($active_tab); ?>');
+            <?php endif; ?>
+            
+            // Edit Email Modal
+            $('.edit-email').click(function() {
+                var id = $(this).data('id');
+                var email = $(this).data('email');
+                
+                $('#email_id').val(id);
+                $('#email_edit').val(email);
+                $('#edit-email-modal').show();
+            });
+            
+            // Close modal when clicking on X
+            $('.close-modal').click(function() {
+                $('#edit-email-modal').hide();
+            });
+            
+            // Close modal when clicking outside
+            $(window).click(function(event) {
+                if ($(event.target).is('#edit-email-modal')) {
+                    $('#edit-email-modal').hide();
                 }
-        </style>
+            });
+            
+            // Tooltips for search info
+            $('.dashicons-info-outline').hover(
+                function() {
+                    $(this).css('color', '#2271b1');
+                },
+                function() {
+                    $(this).css('color', '');
+                }
+            );
+            
+            // Form validation for search
+            $('#search-form').submit(function(e) {
+                var searchTerm = $('#search_term').val().trim();
+                if (searchTerm === '') {
+                    alert('Please enter a search term.');
+                    e.preventDefault();
+                }
+            });
+        });
+        </script>
     </div>
     <?php
 }
