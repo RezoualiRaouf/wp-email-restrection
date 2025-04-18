@@ -5,301 +5,247 @@
  * @package WP_Email_Restriction
  */
 
-// Prevent direct access
-if (!defined('ABSPATH')) exit;
+if (!defined('ABSPATH')) {
+    exit;
+}
 
-/**
- * Admin class
- */
 class WP_Email_Restriction_Admin {
-    /**
-     * Email manager instance
-     */
     private $email_manager;
-    
-    /**
-     * Constructor
-     */
+
     public function __construct() {
         $this->email_manager = new WP_Email_Restriction_Email_Manager();
-        
-        add_action('admin_menu', array($this, 'add_admin_menu'));
-        add_action('admin_init', array($this, 'handle_actions'));
-        add_action('admin_enqueue_scripts', array($this, 'enqueue_scripts'));
+        add_action('admin_menu', [$this, 'add_admin_menu']);
+        add_action('admin_init', [$this, 'handle_actions']);
+        add_action('admin_enqueue_scripts', [$this, 'enqueue_scripts']);
     }
-    
-    /**
-     * Add admin menu
-     */
+
     public function add_admin_menu() {
         add_menu_page(
             'WP Email Restriction',
             'Email Restriction',
             'manage_options',
             'wp-email-restriction',
-            array($this, 'render_admin_page'),
+            [$this, 'render_admin_page'],
             'dashicons-email',
             100
         );
     }
-    
-    /**
-     * Handle admin actions
-     */
+
     public function handle_actions() {
-        // Handle email deletion
-        if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['id']) && isset($_GET['_wpnonce'])) {
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        // Single delete
+        if (
+            isset($_GET['action'], $_GET['id'], $_GET['_wpnonce']) &&
+            $_GET['action'] === 'delete'
+        ) {
             $id = intval($_GET['id']);
-            
             if (wp_verify_nonce($_GET['_wpnonce'], 'delete_email_' . $id)) {
-                $result = $this->email_manager->delete_email($id);
-                
-                // Set transient for notification
-                set_transient('mcp_email_notice_delete', $result['message'], 30);
-                
-                // Redirect to maintain the current tab
-                $tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'main';
-                wp_redirect(admin_url('admin.php?page=wp-email-restriction&tab=' . $tab));
+                $res = $this->email_manager->delete_user($id);
+                set_transient('mcp_email_notice_delete', $res['message'], 30);
+                $tab = sanitize_text_field($_GET['tab'] ?? 'main');
+                wp_redirect(admin_url("admin.php?page=wp-email-restriction&tab={$tab}"));
                 exit;
             }
         }
-        
-        // Handle file uploads
-        if (isset($_POST['upload_file']) && isset($_FILES['uploaded_file']) && isset($_POST['file_upload_nonce']) && wp_verify_nonce($_POST['file_upload_nonce'], 'file_upload_nonce')) {
+
+        // Bulk delete
+        if (isset($_POST['action']) && $_POST['action'] === 'bulk_delete') {
+            if (
+                ! isset($_POST['_wpnonce']) ||
+                ! wp_verify_nonce($_POST['_wpnonce'], 'bulk-users')
+            ) {
+                wp_die(__('Security check failed', 'wp-email-restriction'));
+            }
+            $ids = isset($_POST['bulk-delete']) ? array_map('intval', $_POST['bulk-delete']) : [];
+            $count = 0;
+            foreach ($ids as $uid) {
+                $r = $this->email_manager->delete_user($uid);
+                if ($r['status'] === 'success') {
+                    $count++;
+                }
+            }
+            set_transient('mcp_email_notice_bulk_delete', sprintf(__('%d users deleted.', 'wp-email-restriction'), $count), 30);
+            $tab = sanitize_text_field($_POST['tab'] ?? 'main');
+            wp_redirect(admin_url("admin.php?page=wp-email-restriction&tab={$tab}"));
+            exit;
+        }
+
+        // Add user
+        if (
+            isset($_POST['add_user'], $_POST['user_nonce']) &&
+            wp_verify_nonce($_POST['user_nonce'], 'add_user_nonce')
+        ) {
+            $name     = sanitize_text_field($_POST['name']);
+            $email    = sanitize_email($_POST['email']);
+            $password = $_POST['password'] ?? '';
+            $r        = $this->email_manager->add_user($name, $email, $password);
+            add_settings_error(
+                'mcp_email_messages',
+                $r['status'],
+                $r['message'],
+                $r['status'] === 'success' ? 'success' : 'error'
+            );
+        }
+
+        // Edit user
+        if (
+            isset($_POST['edit_user'], $_POST['user_edit_nonce']) &&
+            wp_verify_nonce($_POST['user_edit_nonce'], 'user_edit_nonce')
+        ) {
+            $uid      = intval($_POST['user_id']);
+            $name     = sanitize_text_field($_POST['name']);
+            $email    = sanitize_email($_POST['email']);
+            $password = $_POST['password'] ?? '';
+            $r        = $this->email_manager->edit_user($uid, $name, $email, $password);
+            add_settings_error(
+                'mcp_email_messages',
+                $r['status'],
+                $r['message'],
+                $r['status'] === 'success' ? 'success' : 'error'
+            );
+        }
+
+        // Reset password
+        if (
+            isset($_POST['reset_password'], $_POST['reset_password_nonce']) &&
+            wp_verify_nonce($_POST['reset_password_nonce'], 'reset_password_nonce')
+        ) {
+            $uid = intval($_POST['user_id_reset']);
+            $r   = $this->email_manager->reset_password($uid);
+            if ($r['status'] === 'success') {
+                set_transient('mcp_temp_password_' . get_current_user_id(), $r['new_password'], 60);
+                add_settings_error('mcp_email_messages', 'password_reset', $r['message'], 'success');
+            } else {
+                add_settings_error('mcp_email_messages', 'password_error', $r['message'], 'error');
+            }
+        }
+
+        // File upload (CSV/JSON)
+        if (
+            isset($_POST['upload_file'], $_FILES['uploaded_file'], $_POST['file_upload_nonce']) &&
+            wp_verify_nonce($_POST['file_upload_nonce'], 'file_upload_nonce')
+        ) {
             $this->process_file_upload();
         }
     }
-    
-    /**
-     * Enqueue admin scripts
-     */
-    public function enqueue_scripts($hook) {
-        if ('toplevel_page_wp-email-restriction' !== $hook) {
-            return;
-        }
-        
-        wp_enqueue_script('jquery');
-        wp_enqueue_script(
-            'wp-email-restriction-admin',
-            WP_EMAIL_RESTRICTION_PLUGIN_URL . 'assets/js/admin.js',
-            array('jquery'),
-            WP_EMAIL_RESTRICTION_VERSION,
-            true
-        );
-        
-        wp_enqueue_style(
-            'wp-email-restriction-admin',
-            WP_EMAIL_RESTRICTION_PLUGIN_URL . 'assets/css/admin.css',
-            array(),
-            WP_EMAIL_RESTRICTION_VERSION
-        );
-    }
-    
-    /**
-     * Process file upload
-     */
+
     private function process_file_upload() {
-        // Get uploaded file
-        $file = $_FILES['uploaded_file'];
-        
-        // Check for errors
-        if ($file['error'] !== UPLOAD_ERR_OK) {
+        $f = $_FILES['uploaded_file'];
+        if ($f['error'] !== UPLOAD_ERR_OK) {
             wp_redirect(admin_url('admin.php?page=wp-email-restriction&tab=uploads&upload_status=error'));
             exit;
         }
-        
-        // Get file extension
-        $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-        
-        // Check if file extension is allowed
-        if (!in_array($file_ext, array('csv', 'json'))) {
+        $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, ['csv', 'json'], true)) {
             wp_redirect(admin_url('admin.php?page=wp-email-restriction&tab=uploads&upload_status=error'));
             exit;
         }
-        
-        // Process file based on extension
-        $added_count = 0;
-        
-        if ($file_ext === 'csv') {
-            $added_count = $this->process_csv_file($file['tmp_name']);
-        } else if ($file_ext === 'json') {
-            $added_count = $this->process_json_file($file['tmp_name']);
-        }
-        
-        // Redirect with status
-        if ($added_count > 0) {
-            wp_redirect(admin_url('admin.php?page=wp-email-restriction&tab=uploads&upload_status=success&added=' . $added_count));
-        } else {
-            wp_redirect(admin_url('admin.php?page=wp-email-restriction&tab=uploads&upload_status=error'));
-        }
+        $cnt = $ext === 'csv'
+            ? $this->email_manager->process_csv_file($f['tmp_name'])
+            : $this->email_manager->process_json_file($f['tmp_name']);
+        $loc = admin_url("admin.php?page=wp-email-restriction&tab=uploads");
+        $loc .= $cnt > 0
+            ? "&upload_status=success&added={$cnt}"
+            : "&upload_status=error";
+        wp_redirect($loc);
         exit;
     }
-    
-    /**
-     * Process CSV file
-     * 
-     * @param string $file_path
-     * @return int
-     */
-    private function process_csv_file($file_path) {
-        $added_count = 0;
-        
-        if (($handle = fopen($file_path, "r")) !== FALSE) {
-            while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
-                if (isset($data[0])) {
-                    $email = sanitize_email($data[0]);
-                    $result = $this->email_manager->add_email($email);
-                    
-                    if ($result['status'] === 'success') {
-                        $added_count++;
-                    }
-                }
-            }
-            fclose($handle);
+
+    public function enqueue_scripts($hook) {
+        if ($hook !== 'toplevel_page_wp-email-restriction') {
+            return;
         }
-        
-        return $added_count;
-    }
-    
-    /**
-     * Process JSON file
-     * 
-     * @param string $file_path
-     * @return int
-     */
-    private function process_json_file($file_path) {
-        $added_count = 0;
-        $json_data = file_get_contents($file_path);
-        $emails = json_decode($json_data, true);
-        
-        if (is_array($emails)) {
-            foreach ($emails as $email) {
-                if (is_string($email)) {
-                    $email = sanitize_email($email);
-                    $result = $this->email_manager->add_email($email);
-                    
-                    if ($result['status'] === 'success') {
-                        $added_count++;
-                    }
-                } else if (is_array($email) && isset($email['email'])) {
-                    $email_address = sanitize_email($email['email']);
-                    $result = $this->email_manager->add_email($email_address);
-                    
-                    if ($result['status'] === 'success') {
-                        $added_count++;
-                    }
-                }
-            }
+        wp_enqueue_script('wp-email-restriction-admin', WP_EMAIL_RESTRICTION_PLUGIN_URL . 'assets/js/admin.js', ['jquery'], WP_EMAIL_RESTRICTION_VERSION, true);
+        $temp = get_transient('mcp_temp_password_' . get_current_user_id());
+        wp_localize_script('wp-email-restriction-admin', 'wpEmailRestriction', ['tempPassword' => $temp ?: '']);
+        if ($temp) {
+            delete_transient('mcp_temp_password_' . get_current_user_id());
         }
-        
-        return $added_count;
+        wp_enqueue_style('wp-email-restriction-admin', WP_EMAIL_RESTRICTION_PLUGIN_URL . 'assets/css/admin.css', [], WP_EMAIL_RESTRICTION_VERSION);
     }
-    
-    /**
-     * Render admin page
-     */
+
     public function render_admin_page() {
-        // Get current tab
-        $active_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'main';
-        
-        // Process form submissions
-        $this->process_form_submissions();
-        
-        // Get email data
-        $search_term = isset($_POST['search_term']) ? sanitize_text_field($_POST['search_term']) : '';
-        $email_data = $this->email_manager->get_emails($search_term);
-        
-        // Include the view
+        if (!current_user_can('manage_options')) {
+            wp_die(__('Insufficient permissions', 'wp-email-restriction'));
+        }
+        $active_tab   = sanitize_text_field($_GET['tab'] ?? 'main');
+        $search_term  = sanitize_text_field($_POST['search_term']  ?? '');
+        $search_field = sanitize_text_field($_POST['search_field'] ?? 'all');
+        $user_data    = $this->email_manager->get_users($search_term, $search_field);
         include WP_EMAIL_RESTRICTION_PLUGIN_DIR . 'includes/admin/views/admin-page.php';
     }
-    
-    /**
-     * Process form submissions
-     */
-    private function process_form_submissions() {
-        // Handle add email form
-        if (isset($_POST['add_email']) && isset($_POST['email_nonce']) && wp_verify_nonce($_POST['email_nonce'], 'add_email_nonce')) {
-            $email = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
-            $result = $this->email_manager->add_email($email);
-            
-            if ($result['status'] === 'success') {
-                add_settings_error('mcp_email_messages', 'mcp_email_add_success', $result['message'], 'success');
-            } else {
-                add_settings_error('mcp_email_messages', 'mcp_email_add_error', $result['message'], 'error');
-            }
-        }
-        
-        // Handle edit email form
-        if (isset($_POST['edit_email']) && isset($_POST['email_edit_nonce']) && wp_verify_nonce($_POST['email_edit_nonce'], 'email_edit_nonce')) {
-            $email_id = isset($_POST['email_id']) ? intval($_POST['email_id']) : 0;
-            $email = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
-            $result = $this->email_manager->edit_email($email_id, $email);
-            
-            if ($result['status'] === 'success') {
-                add_settings_error('mcp_email_messages', 'mcp_email_updated', $result['message'], 'success');
-            } else {
-                add_settings_error('mcp_email_messages', 'mcp_email_error', $result['message'], 'error');
-            }
-        }
-    }
-    
-    /**
-     * Render emails table
-     * 
-     * @param array $email_data
-     * @param string $search_term
-     * @param string $tab
-     */
-    public function render_emails_table($email_data, $search_term, $tab) {
-        $emails = $email_data['emails'];
-        $showing_count = $email_data['showing'];
-        $total_emails = $email_data['total'];
-        
-        // Show delete success or error notice if set
-        if ($notice = get_transient('mcp_email_notice_delete')) {
-            echo '<div class="notice notice-success is-dismissible"><p>' . esc_html($notice) . '</p></div>';
+
+    public function render_users_table($user_data, $search_term, $search_field, $tab) {
+        $users    = $user_data['users'];
+        $shown    = $user_data['showing'];
+        $total    = $user_data['total'];
+        if ($n = get_transient('mcp_email_notice_delete')) {
+            echo "<div class='notice notice-success'><p>" . esc_html($n) . "</p></div>";
             delete_transient('mcp_email_notice_delete');
         }
-        
-        if (!empty($emails)) : ?>
-            <!-- Display count of emails being shown -->
-            <div class="tablenav top">
-                <div class="tablenav-pages">
-                    <span class="displaying-num"><?php echo sprintf('Showing %d of %d emails', $showing_count, $total_emails); ?></span>
+        if ($n = get_transient('mcp_email_notice_bulk_delete')) {
+            echo "<div class='notice notice-success'><p>" . esc_html($n) . "</p></div>";
+            delete_transient('mcp_email_notice_bulk_delete');
+        }
+        if ($users) : ?>
+            <form method="post" action="">
+                <input type="hidden" name="tab" value="<?php echo esc_attr($tab); ?>">
+                <?php wp_nonce_field('bulk-users'); ?>
+                <div class="tablenav top">
+                    <div class="alignleft actions bulkactions">
+                        <select name="action" id="bulk-action-selector-top">
+                            <option value="-1"><?php _e('Bulk Actions', 'wp-email-restriction'); ?></option>
+                            <option value="bulk_delete"><?php _e('Delete'); ?></option>
+                        </select>
+                        <input type="submit" id="doaction" class="button action" value="<?php _e('Apply'); ?>">
+                    </div>
+                    <div class="tablenav-pages">
+                        <span class="displaying-num"><?php printf(__('Showing %d of %d users', 'wp-email-restriction'), $shown, $total); ?></span>
+                    </div>
                 </div>
-            </div>
-            
-            <div class="emails-table-container">
                 <table class="wp-list-table widefat fixed striped">
                     <thead>
                         <tr>
-                            <th class="column-counter">ID</th>
-                            <th class="column-email">Email Address</th>
-                            <th class="column-date">Date Added</th>
-                            <th class="column-actions">Actions</th>
+                            <th class="check-column"><input type="checkbox" /></th>
+                            <th><?php _e('ID', 'wp-email-restriction'); ?></th>
+                            <th><?php _e('Name', 'wp-email-restriction'); ?></th>
+                            <th><?php _e('Email', 'wp-email-restriction'); ?></th>
+                            <th><?php _e('Created At', 'wp-email-restriction'); ?></th>
+                            <th><?php _e('Actions', 'wp-email-restriction'); ?></th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php 
-                        $counter = 1;
-                        foreach ($emails as $email) : 
-                        ?>
+                        <?php foreach ($users as $u) : ?>
                             <tr>
-                                <td><?php echo esc_html($counter++); ?></td>
-                                <td class="email-data"><?php echo esc_html($email->email); ?></td>
-                                <td><?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($email->time))); ?></td>
+                                <th class="check-column"><input type="checkbox" name="bulk-delete[]" value="<?php echo esc_attr($u->id); ?>"></th>
+                                <td><?php echo esc_html($u->id); ?></td>
+                                <td><?php echo esc_html($u->name); ?></td>
+                                <td><?php echo esc_html($u->email); ?></td>
+                                <td><?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($u->created_at))); ?></td>
                                 <td>
-                                    <button type="button" class="button edit-email" data-id="<?php echo esc_attr($email->id); ?>" data-email="<?php echo esc_attr($email->email); ?>" data-tab="<?php echo esc_attr($tab); ?>">Edit</button>
-                                    <a href="<?php echo wp_nonce_url(admin_url('admin.php?page=wp-email-restriction&tab=' . $tab . '&action=delete&id=' . $email->id), 'delete_email_' . $email->id); ?>" class="button" onclick="return confirm('Are you sure you want to delete this email?')">Delete</a>
+                                    <button type="button" class="button edit-user"
+                                        data-id="<?php echo esc_attr($u->id); ?>"
+                                        data-name="<?php echo esc_attr($u->name); ?>"
+                                        data-email="<?php echo esc_attr($u->email); ?>"
+                                        data-tab="<?php echo esc_attr($tab); ?>">
+                                        <?php _e('Edit', 'wp-email-restriction'); ?>
+                                    </button>
+                                    <a href="<?php echo esc_url(wp_nonce_url(admin_url("admin.php?page=wp-email-restriction&tab={$tab}&action=delete&id={$u->id}"), 'delete_email_' . $u->id)); ?>"
+                                       class="button"
+                                       onclick="return confirm('<?php _e('Are you sure?', 'wp-email-restriction'); ?>')">
+                                        <?php _e('Delete', 'wp-email-restriction'); ?>
+                                    </a>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
-            </div>
-            <?php else : ?>
-                <p>No emails have been saved yet.</p>
-            <?php endif;
-            
-        }
+            </form>
+        <?php else : ?>
+            <p><?php _e('No users found.', 'wp-email-restriction'); ?></p>
+        <?php endif;
+    }
 }

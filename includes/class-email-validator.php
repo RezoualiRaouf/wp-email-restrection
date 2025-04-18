@@ -1,57 +1,51 @@
 <?php
-/**
- * Email validator
- *
- * @package WP_Email_Restriction
- */
-
 // Prevent direct access
-if (!defined('ABSPATH')) exit;
+if ( ! defined( 'ABSPATH' ) ) exit;
 
 /**
  * Email validator class
  */
 class WP_Email_Restriction_Validator {
     /**
-     * The domain to validate against
+     * The domain to validate against (no leading “@” here)
+     *
+     * @var string
      */
-    private $allowed_domain = '@univ-bouira.dz';
-    
+    private $allowed_domain = 'univ-bouira.dz';
+
     /**
      * Validate email
-     * 
+     *
      * @param string $email
      * @return bool
      */
-    public function is_valid($email) {
-        // Basic validation
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    public function is_valid( $email ) {
+        // Basic WP email format check
+        if ( ! is_email( $email ) ) {
             return false;
         }
-        
-        // Domain validation
-        if (substr($email, -strlen($this->allowed_domain)) !== $this->allowed_domain) {
-            return false;
-        }
-        
-        return true;
+
+        // Grab what comes after the “@”
+        $email_domain = substr( strrchr( $email, '@' ), 1 );
+        return strtolower( $email_domain ) === strtolower( $this->allowed_domain );
     }
-    
+
     /**
-     * Set allowed domain
-     * 
+     * Set allowed domain (without leading “@”)
+     *
      * @param string $domain
      */
-    public function set_allowed_domain($domain) {
-        $this->allowed_domain = $domain;
+    public function set_allowed_domain( $domain ) {
+        // Strip any leading “@” so it’s stored cleanly
+        $this->allowed_domain = ltrim( $domain, '@' );
     }
-    
+
     /**
-     * Get allowed domain
-     * 
+     * Get allowed domain (add the “@” back for error messages)
+     *
      * @return string
      */
     public function get_allowed_domain() {
-        return $this->allowed_domain;
+        return '@' . $this->allowed_domain;
     }
 }
