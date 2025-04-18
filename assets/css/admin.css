@@ -85,3 +85,34 @@
 .tab-content {
   margin-top: 20px;
 }
+
+.column-name {
+  width: 25%;
+}
+
+.reset-password-section {
+  margin-top: 20px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 4px;
+}
+
+.password-display {
+  margin: 15px 0;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid #ccd0d4;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.password-display code {
+  flex-grow: 1;
+  word-break: break-all;
+}
+
+#password-display-modal .modal-content {
+  max-width: 600px;
+}

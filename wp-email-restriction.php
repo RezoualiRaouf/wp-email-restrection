@@ -126,5 +126,12 @@ function wp_email_restriction() {
     return WP_Email_Restriction::instance();
 }
 
+// Database migration on plugin load
+add_action('plugins_loaded', 'wp_email_restriction_migrate_db');
+function wp_email_restriction_migrate_db() {
+    $db = new WP_Email_Restriction_Database();
+    $db->migrate_data();
+}
+
 // Start the plugin.
 wp_email_restriction();
