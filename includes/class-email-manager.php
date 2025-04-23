@@ -334,6 +334,106 @@ class WP_Email_Restriction_Email_Manager {
     }
     
     /**
+ * Get paginated users with search and filter options
+ * 
+ * @param int $page Current page number
+ * @param int $per_page Items per page
+ * @param string $search_term Search keyword
+ * @param string $search_field Field to search in
+ * @param string $orderby Column to sort by
+ * @param string $order Sort direction (ASC/DESC)
+ * @return array
+ */
+public function get_users_paginated($page = 1, $per_page = 50, $search_term = '', $search_field = 'all', $orderby = 'id', $order = 'DESC') {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'email_restriction';
+    $result = array(
+        'users' => array(),
+        'total' => 0,
+        'total_pages' => 0,
+        'showing' => 0
+    );
+    
+    // Cache key
+    $cache_key = "users_query_{$page}_{$per_page}_" . md5($search_term . $search_field . $orderby . $order);
+    $cached_result = wp_cache_get($cache_key, 'email_restriction');
+    
+    if (false !== $cached_result) {
+        return $cached_result;
+    }
+    
+    // Validate page and per_page
+    $page = max(1, intval($page));
+    $per_page = max(10, min(100, intval($per_page)));
+    $offset = ($page - 1) * $per_page;
+    
+    // Sanitize orderby column
+    $allowed_columns = ['id', 'name', 'email', 'created_at'];
+    $orderby = in_array($orderby, $allowed_columns) ? $orderby : 'id';
+    $order = strtoupper($order) === 'ASC' ? 'ASC' : 'DESC';
+    
+    // Build WHERE clause for search
+    $where_clause = '';
+    $where_args = array();
+    
+    if (!empty($search_term)) {
+        $like_term = '%' . $wpdb->esc_like($search_term) . '%';
+        $conditions = array();
+        
+        if ($search_field === 'name' || $search_field === 'all') {
+            $conditions[] = "name LIKE %s";
+            $where_args[] = $like_term;
+        }
+        
+        if ($search_field === 'email' || $search_field === 'all') {
+            $conditions[] = "email LIKE %s";
+            $where_args[] = $like_term;
+        }
+        
+        if (!empty($conditions)) {
+            $where_clause = " WHERE " . implode(" OR ", $conditions);
+        }
+    }
+    
+    // Count total matching records
+    $count_query = "SELECT COUNT(*) FROM $table_name";
+    if (!empty($where_clause)) {
+        $count_query .= $where_clause;
+    }
+    
+    if (!empty($where_args)) {
+        $prepared_count = $wpdb->prepare($count_query, $where_args);
+        $result['total'] = $wpdb->get_var($prepared_count);
+    } else {
+        $result['total'] = $wpdb->get_var($count_query);
+    }
+    
+    // Calculate total pages
+    $result['total_pages'] = ceil($result['total'] / $per_page);
+    
+    // Build final query with pagination
+    $query = "SELECT id, name, email, created_at, updated_at FROM $table_name";
+    if (!empty($where_clause)) {
+        $query .= $where_clause;
+    }
+    $query .= " ORDER BY $orderby $order LIMIT %d OFFSET %d";
+    
+    // Add pagination parameters
+    $where_args[] = $per_page;
+    $where_args[] = $offset;
+    
+    // Execute query
+    $prepared_query = $wpdb->prepare($query, $where_args);
+    $result['users'] = $wpdb->get_results($prepared_query);
+    $result['showing'] = count($result['users']);
+    
+    // Cache the result for 5 minutes
+    wp_cache_set($cache_key, $result, 'email_restriction', 300);
+    
+    return $result;
+}
+
+    /**
      * Legacy method for backward compatibility
      * 
      * @param string $search_term
@@ -445,5 +545,21 @@ class WP_Email_Restriction_Email_Manager {
         }
         
         return $added_count;
+    }
+        /**
+     * Clear all user-related cache
+     */
+    private function clear_user_cache() {
+        wp_cache_flush_group($this->cache_group);
+    }
+
+    /**
+     * Clear cache for specific user
+     * 
+     * @param int $user_id
+     */
+    private function clear_user_specific_cache($user_id) {
+        $cache_key = "user_{$user_id}";
+        wp_cache_delete($cache_key, $this->cache_group);
     }
 }

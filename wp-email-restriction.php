@@ -12,9 +12,11 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+
 /**
  * Main plugin class
  */
+
 class WP_Email_Restriction {
 
     /**
@@ -82,11 +84,26 @@ class WP_Email_Restriction {
         register_activation_hook(__FILE__, array($this, 'activate'));
         register_deactivation_hook(__FILE__, array($this, 'deactivate'));
         register_uninstall_hook(__FILE__, array('WP_Email_Restriction', 'uninstall'));
+        add_action('admin_init', [$this, 'register_scripts']);
 
         // Initialize admin
         if (is_admin()) {
             new WP_Email_Restriction_Admin();
         }
+    }
+
+     public function register_scripts() {
+        wp_register_script(
+            'wp-email-restriction-admin',
+            WP_EMAIL_RESTRICTION_PLUGIN_URL . 'assets/js/admin.js',
+            ['jquery', 'wp-util'],
+            self::VERSION
+        );
+
+        wp_localize_script('wp-email-restriction-admin', 'wpEmailRestriction', [
+            'nonce' => wp_create_nonce('wp_email_restriction_nonce'),
+            'ajaxurl' => admin_url('admin-ajax.php')
+        ]);
     }
 
     /**

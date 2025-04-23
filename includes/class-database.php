@@ -42,13 +42,14 @@ class WP_Email_Restriction_Database {
             updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY  (id),
             UNIQUE KEY email (email),
-            KEY name (name(191))
+            KEY name (name(191)),
+            KEY created_at (created_at),
+            KEY email_created (email, created_at)
         ) $charset_collate;";
         
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql);
     }
-    
     /**
      * Migrate data from old table structure to new structure
      */

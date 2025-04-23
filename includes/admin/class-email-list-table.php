@@ -20,7 +20,7 @@ class WP_Email_Restriction_List_Table extends WP_List_Table {
         parent::__construct([
             'singular' => 'email',
             'plural'   => 'emails',
-            'ajax'     => false,
+            'ajax'     => true,
         ]);
     }
 
@@ -41,48 +41,44 @@ class WP_Email_Restriction_List_Table extends WP_List_Table {
     }
 
     public function prepare_items() {
-        global $wpdb;
-        $table = $wpdb->prefix . 'email_restriction';
-
-        $columns  = $this->get_columns();
-        $hidden   = [];
+        // Set column headers
+        $columns = $this->get_columns();
+        $hidden = [];
         $sortable = $this->get_sortable_columns();
         $this->_column_headers = [$columns, $hidden, $sortable];
-
+    
+        // Process bulk action if any
         $this->process_bulk_action();
-
-        $per_page    = 20;
-        $current     = $this->get_pagenum();
-        $total_items = $wpdb->get_var("SELECT COUNT(*) FROM {$table}");
-        $this->set_pagination_args([
-            'total_items' => $total_items,
-            'per_page'    => $per_page,
-            'total_pages' => ceil($total_items / $per_page),
-        ]);
-
+        
+        // Get pagination parameters
+        $per_page = 50;
+        $current_page = $this->get_pagenum();
+        
+        // Get search parameters
         $search = isset($_REQUEST['s']) ? sanitize_text_field($_REQUEST['s']) : '';
-        $offset = ($current - 1) * $per_page;
-
-        if ($search) {
-            $like = '%' . $wpdb->esc_like($search) . '%';
-            $sql  = $wpdb->prepare(
-                "SELECT id, email, created_at FROM {$table}
-                 WHERE email LIKE %s
-                 ORDER BY id DESC
-                 LIMIT %d OFFSET %d",
-                $like, $per_page, $offset
-            );
-        } else {
-            $sql = $wpdb->prepare(
-                "SELECT id, email, created_at
-                 FROM {$table}
-                 ORDER BY id DESC
-                 LIMIT %d OFFSET %d",
-                $per_page, $offset
-            );
-        }
-
-        $this->items = $wpdb->get_results($sql, ARRAY_A);
+        $search_field = isset($_REQUEST['search_field']) ? sanitize_text_field($_REQUEST['search_field']) : 'all';
+        
+        // Get sorting parameters
+        $orderby = isset($_REQUEST['orderby']) ? sanitize_text_field($_REQUEST['orderby']) : 'id';
+        $order = isset($_REQUEST['order']) ? sanitize_text_field($_REQUEST['order']) : 'DESC';
+        
+        // Use the Email Manager's paginated method
+        $manager = new WP_Email_Restriction_Email_Manager();
+        $result = $manager->get_users_paginated(
+            $current_page,
+            $per_page,
+            $search,
+            $search_field,
+            $orderby,
+            $order
+        );
+    
+        $this->items = $result['users'];
+        $this->set_pagination_args([
+            'total_items' => $result['total'],
+            'per_page'    => $per_page,
+            'total_pages' => $result['total_pages']
+        ]);
     }
 
     public function column_default($item, $col) {
