@@ -9,6 +9,21 @@ if (!defined('ABSPATH')) {
 }
 ?>
 <div class="wrap">
+  <div id="users-loading" class="loading-overlay" style="display:none;">
+    <span class="spinner is-active"></span>
+    <span class="loading-text">Loading users...</span>
+</div>
+
+<div id="bulk-operation-progress" class="hidden">
+    <div class="progress-bar-container">
+        <div class="progress-bar">
+            <div class="progress-bar-fill" style="width: 0%"></div>
+        </div>
+    </div>
+    <div class="progress-status">
+        Processing: <span class="processed-count">0</span>/<span class="total-count">0</span>
+    </div>
+</div>
   <h1><?php _e('WP Email Restriction', 'wp-email-restriction'); ?></h1>
   <?php settings_errors('mcp_email_messages'); ?>
 

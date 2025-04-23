@@ -17,8 +17,8 @@ class WP_Email_Restriction_Admin {
         add_action('admin_menu', [$this, 'add_admin_menu']);
         add_action('admin_init', [$this, 'handle_actions']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_scripts']);
+        $this->register_ajax_handlers();
     }
-
     public function add_admin_menu() {
         add_menu_page(
             'WP Email Restriction',
@@ -156,6 +156,14 @@ class WP_Email_Restriction_Admin {
 
     public function enqueue_scripts($hook) {
         if ($hook !== 'toplevel_page_wp-email-restriction') {
+
+    wp_localize_script('wp-email-restriction-admin', 'wpEmailRestriction', [
+        'tempPassword' => $temp ?: '',
+        'nonce' => wp_create_nonce('wp_email_restriction_nonce'),
+        'ajaxurl' => admin_url('admin-ajax.php'),
+        'deleteConfirm' => __('Are you sure you want to delete this user?', 'wp-email-restriction'),
+        'bulkDeleteConfirm' => __('Are you sure you want to delete these users?', 'wp-email-restriction')
+        ]);
             return;
         }
         wp_enqueue_script('wp-email-restriction-admin', WP_EMAIL_RESTRICTION_PLUGIN_URL . 'assets/js/admin.js', ['jquery'], WP_EMAIL_RESTRICTION_VERSION, true);
@@ -167,6 +175,81 @@ class WP_Email_Restriction_Admin {
         wp_enqueue_style('wp-email-restriction-admin', WP_EMAIL_RESTRICTION_PLUGIN_URL . 'assets/css/admin.css', [], WP_EMAIL_RESTRICTION_VERSION);
     }
 
+    public function register_ajax_handlers() {
+        add_action('wp_ajax_get_restricted_users', [$this, 'ajax_get_users']);
+        add_action('wp_ajax_delete_restricted_user', [$this, 'ajax_delete_user']);
+        add_action('wp_ajax_bulk_delete_restricted_users', [$this, 'ajax_bulk_delete_users']);
+    }
+    
+    public function ajax_get_users() {
+        check_ajax_referer('wp_email_restriction_nonce', 'security');
+        
+        $page = isset($_POST['page']) ? intval($_POST['page']) : 1;
+        $per_page = isset($_POST['per_page']) ? intval($_POST['per_page']) : 50;
+        $search = isset($_POST['search_term']) ? sanitize_text_field($_POST['search_term']) : '';
+        $search_field = isset($_POST['search_field']) ? sanitize_text_field($_POST['search_field']) : 'all';
+        $orderby = isset($_POST['orderby']) ? sanitize_text_field($_POST['orderby']) : 'id';
+        $order = isset($_POST['order']) ? sanitize_text_field($_POST['order']) : 'DESC';
+        
+        $result = $this->email_manager->get_users_paginated(
+            $page,
+            $per_page,
+            $search,
+            $search_field,
+            $orderby,
+            $order
+        );
+        
+        wp_send_json_success($result);
+    }
+    
+    public function ajax_delete_user() {
+        check_ajax_referer('wp_email_restriction_nonce', 'security');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => 'Insufficient permissions']);
+            return;
+        }
+        
+        $user_id = isset($_POST['id']) ? intval($_POST['id']) : 0;
+        $result = $this->email_manager->delete_user($user_id);
+        
+        wp_send_json_success($result);
+    }
+    
+    public function ajax_bulk_delete_users() {
+        check_ajax_referer('wp_email_restriction_nonce', 'security');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => 'Insufficient permissions']);
+            return;
+        }
+        
+        $ids = isset($_POST['ids']) ? array_map('intval', $_POST['ids']) : [];
+        $success_count = 0;
+        $failed_count = 0;
+        
+        // Process in batches
+        $batch_size = 100;
+        $batches = array_chunk($ids, $batch_size);
+        
+        foreach ($batches as $batch) {
+            foreach ($batch as $id) {
+                $result = $this->email_manager->delete_user($id);
+                if ($result['status'] === 'success') {
+                    $success_count++;
+                } else {
+                    $failed_count++;
+                }
+            }
+        }
+        
+        wp_send_json_success([
+            'deleted' => $success_count,
+            'failed' => $failed_count,
+            'message' => sprintf(__('%d users deleted successfully, %d failed.', 'wp-email-restriction'), $success_count, $failed_count)
+        ]);
+    }
     public function render_admin_page() {
         if (!current_user_can('manage_options')) {
             wp_die(__('Insufficient permissions', 'wp-email-restriction'));
