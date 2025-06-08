@@ -18,3 +18,5 @@ This plugin adds a custom admin page with text fields and buttons.
 == Changelog ==
 = 1.0 =
 * Initial release.
+
+**test
