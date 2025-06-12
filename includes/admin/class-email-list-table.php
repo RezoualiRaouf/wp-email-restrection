@@ -51,7 +51,7 @@ class WP_Email_Restriction_List_Table extends WP_List_Table {
         $this->process_bulk_action();
         
         // Get pagination parameters
-        $per_page = 50;
+        $per_page = 25;
         $current_page = $this->get_pagenum();
         
         // Get search parameters

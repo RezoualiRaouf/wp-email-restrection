@@ -19,6 +19,7 @@ class WP_Email_Restriction_Admin {
         add_action('admin_enqueue_scripts', [$this, 'enqueue_scripts']);
         $this->register_ajax_handlers();
     }
+
     public function add_admin_menu() {
         add_menu_page(
             'WP Email Restriction',
@@ -156,23 +157,37 @@ class WP_Email_Restriction_Admin {
 
     public function enqueue_scripts($hook) {
         if ($hook !== 'toplevel_page_wp-email-restriction') {
-
-    wp_localize_script('wp-email-restriction-admin', 'wpEmailRestriction', [
-        'tempPassword' => $temp ?: '',
-        'nonce' => wp_create_nonce('wp_email_restriction_nonce'),
-        'ajaxurl' => admin_url('admin-ajax.php'),
-        'deleteConfirm' => __('Are you sure you want to delete this user?', 'wp-email-restriction'),
-        'bulkDeleteConfirm' => __('Are you sure you want to delete these users?', 'wp-email-restriction')
-        ]);
             return;
         }
-        wp_enqueue_script('wp-email-restriction-admin', WP_EMAIL_RESTRICTION_PLUGIN_URL . 'assets/js/admin.js', ['jquery'], WP_EMAIL_RESTRICTION_VERSION, true);
+        
+        wp_enqueue_script(
+            'wp-email-restriction-admin', 
+            WP_EMAIL_RESTRICTION_PLUGIN_URL . 'assets/js/admin.js', 
+            ['jquery'], 
+            WP_EMAIL_RESTRICTION_VERSION, 
+            true
+        );
+        
         $temp = get_transient('mcp_temp_password_' . get_current_user_id());
-        wp_localize_script('wp-email-restriction-admin', 'wpEmailRestriction', ['tempPassword' => $temp ?: '']);
+        
+        wp_localize_script('wp-email-restriction-admin', 'wpEmailRestriction', [
+            'tempPassword' => $temp ?: '',
+            'nonce' => wp_create_nonce('wp_email_restriction_nonce'),
+            'ajaxurl' => admin_url('admin-ajax.php'),
+            'deleteConfirm' => __('Are you sure you want to delete this user?', 'wp-email-restriction'),
+            'bulkDeleteConfirm' => __('Are you sure you want to delete these users?', 'wp-email-restriction')
+        ]);
+        
         if ($temp) {
             delete_transient('mcp_temp_password_' . get_current_user_id());
         }
-        wp_enqueue_style('wp-email-restriction-admin', WP_EMAIL_RESTRICTION_PLUGIN_URL . 'assets/css/admin.css', [], WP_EMAIL_RESTRICTION_VERSION);
+        
+        wp_enqueue_style(
+            'wp-email-restriction-admin', 
+            WP_EMAIL_RESTRICTION_PLUGIN_URL . 'assets/css/admin.css', 
+            [], 
+            WP_EMAIL_RESTRICTION_VERSION
+        );
     }
 
     public function register_ajax_handlers() {
@@ -250,6 +265,7 @@ class WP_Email_Restriction_Admin {
             'message' => sprintf(__('%d users deleted successfully, %d failed.', 'wp-email-restriction'), $success_count, $failed_count)
         ]);
     }
+
     public function render_admin_page() {
         if (!current_user_can('manage_options')) {
             wp_die(__('Insufficient permissions', 'wp-email-restriction'));
@@ -261,10 +277,13 @@ class WP_Email_Restriction_Admin {
         include WP_EMAIL_RESTRICTION_PLUGIN_DIR . 'includes/admin/views/admin-page.php';
     }
 
+    public function render_added_user_info($user_data,$tab){}
+    
     public function render_users_table($user_data, $search_term, $search_field, $tab) {
         $users    = $user_data['users'];
         $shown    = $user_data['showing'];
         $total    = $user_data['total'];
+        
         if ($n = get_transient('mcp_email_notice_delete')) {
             echo "<div class='notice notice-success'><p>" . esc_html($n) . "</p></div>";
             delete_transient('mcp_email_notice_delete');
@@ -273,6 +292,7 @@ class WP_Email_Restriction_Admin {
             echo "<div class='notice notice-success'><p>" . esc_html($n) . "</p></div>";
             delete_transient('mcp_email_notice_bulk_delete');
         }
+        
         if ($users) : ?>
             <form method="post" action="">
                 <input type="hidden" name="tab" value="<?php echo esc_attr($tab); ?>">
@@ -317,8 +337,8 @@ class WP_Email_Restriction_Admin {
                                         <?php _e('Edit', 'wp-email-restriction'); ?>
                                     </button>
                                     <a href="<?php echo esc_url(wp_nonce_url(admin_url("admin.php?page=wp-email-restriction&tab={$tab}&action=delete&id={$u->id}"), 'delete_email_' . $u->id)); ?>"
-                                       class="button"
-                                       onclick="return confirm('<?php _e('Are you sure?', 'wp-email-restriction'); ?>')">
+                                       class="button delete-user"
+                                       data-id="<?php echo esc_attr($u->id); ?>">
                                         <?php _e('Delete', 'wp-email-restriction'); ?>
                                     </a>
                                 </td>
