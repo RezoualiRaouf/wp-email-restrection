@@ -8,7 +8,7 @@
   let currentPage = 1;
   let totalPages = 1;
   let loading = false;
-  let perPage = 50;
+  let perPage = 25; // Updated to 25 per page
   let searchTerm = "";
   let searchField = "all";
   let orderBy = "id";
@@ -41,7 +41,7 @@
   // Initialize modals
   function initModals() {
     // Close modal on X click
-    $(".close-modal").on("click", function () {
+    $(document).on("click", ".close-modal", function () {
       $(this).closest(".modal").hide();
     });
 
@@ -53,7 +53,7 @@
     });
 
     // Copy password button
-    $("#copy-password").on("click", function () {
+    $(document).on("click", "#copy-password", function () {
       const password = $("#new-password-display").text();
       if (navigator.clipboard) {
         navigator.clipboard.writeText(password).then(() => {
@@ -80,12 +80,17 @@
   // Initialize edit user modal
   function initEditUserModal() {
     // Show edit modal when edit button is clicked
-    $(document).on("click", ".edit-user", function () {
+    $(document).on("click", ".edit-user", function (e) {
+      e.preventDefault();
+
       const id = $(this).data("id");
       const name = $(this).data("name");
       const email = $(this).data("email");
-      const tab = $(this).data("tab") || "main";
+      const tab = $(this).data("tab") || getCurrentTab();
 
+      console.log("Edit user clicked:", { id, name, email, tab }); // Debug
+
+      // Populate modal fields
       $("#user_id").val(id);
       $("#user_id_reset").val(id);
       $("#name_edit").val(name);
@@ -93,8 +98,13 @@
       $("#password_edit").val("");
       $("#edit_form_tab").val(tab);
 
+      // Show the modal
       $("#edit-user-modal").show();
     });
+
+    // Ensure modal is properly hidden on page load
+    $("#edit-user-modal").hide();
+    $("#password-display-modal").hide();
   }
 
   // Initialize pagination
@@ -114,13 +124,15 @@
     // Handle pagination clicks
     $(document).on("click", ".tablenav-pages a", function (e) {
       e.preventDefault();
-      const page = parseInt(
-        $(this)
-          .attr("href")
-          .match(/page=(\d+)/)[1]
-      );
-      if (page) {
-        loadUsersPage(page);
+      const href = $(this).attr("href");
+      if (href) {
+        const pageMatch = href.match(/page=(\d+)/);
+        if (pageMatch) {
+          const page = parseInt(pageMatch[1]);
+          if (page) {
+            loadUsersPage(page);
+          }
+        }
       }
     });
   }
@@ -154,13 +166,20 @@
   // Initialize bulk actions
   function initBulkActions() {
     // Bulk select all checkbox
-    $(".check-column input[type='checkbox']").on("change", function () {
-      const isChecked = $(this).prop("checked");
-      $("input[name='bulk-delete[]']").prop("checked", isChecked);
-    });
+    $(document).on(
+      "change",
+      ".check-column input[type='checkbox']",
+      function () {
+        const isChecked = $(this).prop("checked");
+        if ($(this).closest("thead").length > 0) {
+          // This is the "select all" checkbox in the header
+          $("input[name='bulk-delete[]']").prop("checked", isChecked);
+        }
+      }
+    );
 
     // Handle bulk delete submit
-    $("#doaction").on("click", function (e) {
+    $(document).on("click", "#doaction", function (e) {
       const action = $("#bulk-action-selector-top").val();
 
       if (action === "bulk_delete") {
@@ -229,7 +248,13 @@
 
           // Update total pages
           totalPages = response.data.total_pages;
+        } else {
+          console.error("Error loading users:", response);
         }
+      },
+      error: function (xhr, status, error) {
+        console.error("AJAX error:", error);
+        showNotice("Error loading users. Please try again.", "error");
       },
       complete: function () {
         // Hide loading indicator
@@ -376,10 +401,13 @@
           });
 
           // Show success message
-          showNotice(response.data.message, "success");
+          showNotice(
+            response.data.message || "User deleted successfully",
+            "success"
+          );
         } else {
           rowElement.removeClass("deleting");
-          showNotice("Error deleting user", "error");
+          showNotice(response.data.message || "Error deleting user", "error");
         }
       },
       error: function () {
@@ -490,5 +518,16 @@
   // Escape HTML for security
   function escapeHtml(text) {
     return $("<div>").text(text).html();
+  }
+
+  // Debug function to test modal
+  window.testModal = function () {
+    $("#edit-user-modal").show();
+  };
+
+  // Add some debug info
+  if (window.console) {
+    console.log("WP Email Restriction Admin JS loaded");
+    console.log("Current tab:", getCurrentTab());
   }
 })(jQuery);

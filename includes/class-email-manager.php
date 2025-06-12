@@ -344,7 +344,7 @@ class WP_Email_Restriction_Email_Manager {
  * @param string $order Sort direction (ASC/DESC)
  * @return array
  */
-public function get_users_paginated($page = 1, $per_page = 50, $search_term = '', $search_field = 'all', $orderby = 'id', $order = 'DESC') {
+public function get_users_paginated($page = 1, $per_page = 25, $search_term = '', $search_field = 'all', $orderby = 'id', $order = 'DESC') {
     global $wpdb;
     $table_name = $wpdb->prefix . 'email_restriction';
     $result = array(

@@ -137,6 +137,11 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
         <?php submit_button(__('Add User'), 'primary', 'add_user'); ?>
       </form>
     </div>
+
+    <?php 
+    // Show recently added user if exists
+    $this->render_added_user_info($user_data, 'settings'); 
+    ?>
   </div>
 
   <!-- Uploads Tab -->
@@ -294,16 +299,7 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
         </tr>
       </table>
       
-      <h3><?php _e('Security Features', 'wp-email-restriction'); ?></h3>
-      <ul>
-        <li>✅ <?php _e('Domain-restricted email validation'); ?></li>
-        <li>✅ <?php _e('Password hashing with WordPress standards'); ?></li>
-        <li>✅ <?php _e('Session-based authentication'); ?></li>
-        <li>✅ <?php _e('CSRF protection on all forms'); ?></li>
-        <li>✅ <?php _e('Input sanitization and validation'); ?></li>
-        <li>✅ <?php _e('SQL injection prevention'); ?></li>
-      </ul>
-      
+     
       <h3><?php _e('Export Data', 'wp-email-restriction'); ?></h3>
       <p><?php _e('Export all user data for backup or migration purposes.'); ?></p>
       <a href="<?php echo wp_nonce_url(admin_url('admin.php?page=wp-email-restriction&action=export_users'), 'export_users'); ?>" 
@@ -311,9 +307,9 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
     </div>
   </div>
 
-  <!-- Modals remain the same -->
-  <!-- Edit Modal (shared) -->
-  <div id="edit-user-modal" class="modal">
+  <!-- FIXED: Edit Modal (only show on appropriate pages) -->
+  <?php if (in_array($active_tab, ['main', 'settings']) || isset($_POST['edit_user']) || isset($_POST['add_user'])) : ?>
+  <div id="edit-user-modal" class="modal" style="display: none;">
     <div class="modal-content">
       <span class="close-modal">&times;</span>
       <h2><?php _e('Edit User'); ?></h2>
@@ -348,21 +344,12 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
         <form method="post" action="">
           <?php wp_nonce_field('reset_password_nonce', 'reset_password_nonce'); ?>
           <input type="hidden" name="user_id_reset" id="user_id_reset" value="">
+          <input type="hidden" name="tab" value="<?php echo esc_attr($active_tab); ?>">
           <?php submit_button(__('Reset Password'), 'secondary', 'reset_password'); ?>
         </form>
       </div>
     </div>
   </div>
+  <?php endif; ?>
 
-  <!-- Password Display Modal -->
-  <div id="password-display-modal" class="modal">
-    <div class="modal-content">
-      <span class="close-modal">&times;</span>
-      <h2><?php _e('New Password Generated'); ?></h2>
-      <div class="password-display">
-        <code id="new-password-display"></code>
-        <button id="copy-password" class="button"><?php _e('Copy Password'); ?></button>
-      </div>
-    </div>
-  </div>
 </div>

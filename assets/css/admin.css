@@ -150,3 +150,7 @@ tr.deleting {
   font-family: monospace;
   margin-right: 10px;
 }
+
+.card {
+  max-width: 660px;
+}
