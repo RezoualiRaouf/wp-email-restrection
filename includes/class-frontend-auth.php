@@ -37,8 +37,8 @@ class WP_Email_Restriction_Frontend_Auth {
         // Add login/logout to menu
         add_filter('wp_nav_menu_items', [$this, 'add_login_logout_link'], 10, 2);
         
-        // Disable WordPress default login for non-admin users
-        add_action('login_init', [$this, 'disable_default_login']);
+        // Handle export functionality
+        add_action('admin_init', [$this, 'handle_export']);
     }
     
     public function start_session() {
@@ -48,23 +48,39 @@ class WP_Email_Restriction_Frontend_Auth {
     }
     
     public function check_access() {
-        // Don't restrict admin areas or AJAX calls
+        // Don't restrict admin areas, AJAX calls, or logged-in admin users
         if (is_admin() || wp_doing_ajax() || $this->is_login_page()) {
+            return;
+        }
+        
+        // Allow logged-in WordPress admin users to access the site
+        if (is_user_logged_in() && current_user_can('manage_options')) {
+            return;
+        }
+        
+        // Allow access to WordPress login/register pages
+        global $pagenow;
+        if (in_array($pagenow, ['wp-login.php', 'wp-register.php']) || 
+            strpos($_SERVER['REQUEST_URI'], 'wp-login.php') !== false ||
+            strpos($_SERVER['REQUEST_URI'], 'wp-admin') !== false) {
             return;
         }
         
         // Allow access to specific pages (customize as needed)
         $allowed_pages = apply_filters('wp_email_restriction_allowed_pages', [
             'wp-login.php',
-            'wp-register.php'
+            'wp-register.php',
+            'wp-admin'
         ]);
         
         $current_page = basename($_SERVER['REQUEST_URI']);
-        if (in_array($current_page, $allowed_pages)) {
-            return;
+        foreach ($allowed_pages as $allowed_page) {
+            if (strpos($_SERVER['REQUEST_URI'], $allowed_page) !== false) {
+                return;
+            }
         }
         
-        // Check if user is authenticated
+        // Check if user is authenticated through our system
         if (!$this->is_user_authenticated()) {
             $this->show_login_page();
             exit;
@@ -77,6 +93,11 @@ class WP_Email_Restriction_Frontend_Auth {
     }
     
     public function is_user_authenticated() {
+        // Admin users are always considered authenticated
+        if (is_user_logged_in() && current_user_can('manage_options')) {
+            return true;
+        }
+        
         return isset($_SESSION['restricted_user_authenticated']) && 
                $_SESSION['restricted_user_authenticated'] === true &&
                isset($_SESSION['restricted_user_email']);
@@ -200,7 +221,7 @@ class WP_Email_Restriction_Frontend_Auth {
             return $items;
         }
         
-        if ($this->is_user_authenticated()) {
+        if ($this->is_user_authenticated() && !is_user_logged_in()) {
             $user_name = $_SESSION['restricted_user_name'] ?? 'User';
             $items .= '<li class="menu-item restricted-user-info">';
             $items .= '<span>Welcome, ' . esc_html($user_name) . '</span>';
@@ -211,15 +232,18 @@ class WP_Email_Restriction_Frontend_Auth {
         return $items;
     }
     
-    public function disable_default_login() {
-        // Redirect admin login attempts to our custom login
-        if (!current_user_can('manage_options')) {
-            wp_redirect(home_url('?restricted_login=1'));
-            exit;
-        }
-    }
-    
     public function get_current_user() {
+        // If WordPress admin is logged in, return their info
+        if (is_user_logged_in() && current_user_can('manage_options')) {
+            $wp_user = wp_get_current_user();
+            return [
+                'id' => $wp_user->ID,
+                'name' => $wp_user->display_name,
+                'email' => $wp_user->user_email,
+                'type' => 'wp_admin'
+            ];
+        }
+        
         if (!$this->is_user_authenticated()) {
             return null;
         }
@@ -227,7 +251,48 @@ class WP_Email_Restriction_Frontend_Auth {
         return [
             'id' => $_SESSION['restricted_user_id'],
             'name' => $_SESSION['restricted_user_name'],
-            'email' => $_SESSION['restricted_user_email']
+            'email' => $_SESSION['restricted_user_email'],
+            'type' => 'restricted'
         ];
+    }
+    
+    public function handle_export() {
+        if (isset($_GET['action']) && $_GET['action'] === 'export_users' && 
+            wp_verify_nonce($_GET['_wpnonce'], 'export_users') && 
+            current_user_can('manage_options')) {
+            
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'email_restriction';
+            $users = $wpdb->get_results("SELECT id, name, email, created_at FROM $table_name ORDER BY id DESC");
+            
+            if (empty($users)) {
+                wp_die('No users found to export.');
+            }
+            
+            $filename = 'email-restriction-users-' . date('Y-m-d-H-i-s') . '.csv';
+            
+            header('Content-Type: text/csv');
+            header('Content-Disposition: attachment; filename="' . $filename . '"');
+            header('Pragma: no-cache');
+            header('Expires: 0');
+            
+            $output = fopen('php://output', 'w');
+            
+            // Add CSV headers
+            fputcsv($output, ['ID', 'Name', 'Email', 'Created At']);
+            
+            // Add user data
+            foreach ($users as $user) {
+                fputcsv($output, [
+                    $user->id,
+                    $user->name,
+                    $user->email,
+                    $user->created_at
+                ]);
+            }
+            
+            fclose($output);
+            exit;
+        }
     }
 }
