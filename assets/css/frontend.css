@@ -1,0 +1,289 @@
+/* Frontend Login Page Styles */
+* {
+  box-sizing: border-box;
+}
+
+body.restricted-login-page {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  background: var(--background-color);
+  color: var(--text-color);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-image: radial-gradient(
+      circle at 20% 50%,
+      rgba(120, 119, 198, 0.3) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 80% 20%,
+      rgba(255, 119, 198, 0.3) 0%,
+      transparent 50%
+    ),
+    radial-gradient(
+      circle at 40% 80%,
+      rgba(120, 200, 255, 0.3) 0%,
+      transparent 50%
+    );
+  background-attachment: fixed;
+}
+
+.login-container {
+  width: 100%;
+  max-width: 400px;
+  padding: 20px;
+}
+
+.login-form-wrapper {
+  background: var(--form-background);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.login-logo {
+  text-align: center;
+  padding: 30px 30px 0;
+}
+
+.login-logo img {
+  max-width: 150px;
+  height: auto;
+}
+
+.login-header {
+  text-align: center;
+  padding: 30px 30px 20px;
+}
+
+.login-header h1 {
+  margin: 0 0 10px;
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.login-header p {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.login-form {
+  padding: 0 30px 30px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: var(--text-color);
+  font-size: 14px;
+}
+
+.form-group input[type="email"],
+.form-group input[type="password"] {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  font-size: 16px;
+  transition: all 0.3s ease;
+  background: #fafbfc;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(0, 115, 170, 0.1);
+}
+
+.login-button {
+  width: 100%;
+  padding: 14px;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-button:hover {
+  background: color-mix(in srgb, var(--primary-color) 90%, black);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 115, 170, 0.3);
+}
+
+.login-button:active {
+  transform: translateY(0);
+}
+
+.login-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.button-spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.button-spinner svg {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.login-message {
+  margin: 15px 30px;
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.login-message.success {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.login-message.error {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.login-footer {
+  padding: 20px 30px;
+  background: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+  text-align: center;
+}
+
+.login-footer p {
+  margin: 5px 0;
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.login-footer a {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.login-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Menu integration styles */
+.restricted-user-info {
+  display: flex !important;
+  align-items: center;
+  padding: 0 15px;
+  color: #333;
+  font-size: 14px;
+}
+
+.restricted-logout-link {
+  color: var(--primary-color) !important;
+  text-decoration: none;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.restricted-logout-link:hover {
+  text-decoration: underline !important;
+}
+
+/* Responsive design */
+@media (max-width: 480px) {
+  .login-container {
+    padding: 10px;
+  }
+
+  .login-form-wrapper {
+    border-radius: 8px;
+  }
+
+  .login-header h1 {
+    font-size: 24px;
+  }
+
+  .login-form {
+    padding: 0 20px 20px;
+  }
+
+  .login-header {
+    padding: 20px 20px 15px;
+  }
+
+  .form-group input[type="email"],
+  .form-group input[type="password"] {
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+}
+
+/* Loading overlay for form submission */
+.login-form.loading {
+  position: relative;
+  pointer-events: none;
+}
+
+.login-form.loading::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 8px;
+}
+
+/* Smooth transitions */
+.login-message {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: all 0.3s ease;
+}
+
+.login-message.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Focus indicators for accessibility */
+.login-button:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.form-group input:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
