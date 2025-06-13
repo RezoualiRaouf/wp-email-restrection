@@ -122,13 +122,24 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
 
   <!-- Uploads Tab -->
   <?php if ($active_tab === 'uploads') : ?>
-    <div class="card">
+
+  <div class="card card-half">
+  <h2><?php _e('Export users ');?></h2>
+
+  <p><?php _e("export the user's info in a CSV/JSON format");  ?></p>    
+  
+  <h3> <?php _e('export in CSV');?></h3>
+  <button type="click"></button>
+  </div>
+
+    <div class="card card-half">
       <h2><?php _e('Bulk Import Users', 'wp-email-restriction'); ?></h2>
       <p><?php _e('Upload a CSV or JSON file to import multiple users at once.', 'wp-email-restriction'); ?></p>
       
-      <h3><?php _e('CSV Format', 'wp-email-restriction'); ?></h3>
+      <h3><?php _e('CSV Format', 'wp-email-restriction'); ?>
       <p><?php _e('Your CSV file should have the following columns:', 'wp-email-restriction'); ?></p>
       <code>name,email,password</code>
+      <code>name,email</code>
       <p class="description"><?php _e('The password column is optional. If not provided, random passwords will be generated.', 'wp-email-restriction'); ?></p>
       
       <h3><?php _e('JSON Format', 'wp-email-restriction'); ?></h3>
