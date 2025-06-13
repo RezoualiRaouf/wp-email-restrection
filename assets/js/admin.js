@@ -1,35 +1,26 @@
 /**
- * Admin JavaScript
+ * Simple Admin JavaScript - Working Edit & Delete with Load More Pagination
  */
 (function ($) {
   "use strict";
 
-  // Variables
+  // Pagination variables
   let currentPage = 1;
-  let totalPages = 1;
+  let totalUsers = 0;
+  let loadedUsers = 0;
   let loading = false;
-  let perPage = 25; // Updated to 25 per page
-  let searchTerm = "";
-  let searchField = "all";
-  let orderBy = "id";
-  let order = "DESC";
+  const initialLoad = 100; // First load
+  const loadMoreSize = 50; // Subsequent loads
 
-  // Initialize on document ready
   $(document).ready(function () {
-    // Initialize modals
     initModals();
-
-    // Initialize edit user modal
     initEditUserModal();
-
-    // Initialize pagination
-    initPagination();
-
-    // Initialize search
-    initSearch();
-
-    // Initialize bulk actions
     initBulkActions();
+    initLoadMore();
+    initializePaginationCounters();
+
+    // Force re-initialize for initially loaded table
+    initTableButtons();
 
     // Show password if reset
     if (wpEmailRestriction.tempPassword) {
@@ -37,6 +28,184 @@
       $("#password-display-modal").show();
     }
   });
+
+  // Initialize pagination counters based on loaded table
+  function initializePaginationCounters() {
+    // Use data passed from PHP if available
+    if (window.wpEmailRestrictionPagination) {
+      loadedUsers = window.wpEmailRestrictionPagination.loadedUsers;
+      totalUsers = window.wpEmailRestrictionPagination.totalUsers;
+      currentPage = window.wpEmailRestrictionPagination.currentPage;
+    } else {
+      // Fallback: Count currently loaded users
+      loadedUsers = $(".wp-list-table tbody tr").length;
+
+      // Extract total from display text
+      const displayText = $(".displaying-num").text();
+      const match = displayText.match(/of (\d+) users/);
+      if (match) {
+        totalUsers = parseInt(match[1]);
+      }
+
+      // Set current page (we start with page 1 loaded)
+      currentPage = 1;
+    }
+  }
+
+  // Initialize Load More functionality
+  function initLoadMore() {
+    $(document).on("click", "#load-more-users", function (e) {
+      e.preventDefault();
+      if (!loading) {
+        loadMoreUsers();
+      }
+    });
+  }
+
+  // Load more users
+  function loadMoreUsers() {
+    if (loading) return;
+
+    loading = true;
+    currentPage++;
+
+    const $button = $("#load-more-users");
+    const originalText = $button.text();
+
+    // Update button state
+    $button.prop("disabled", true).text("Loading...");
+
+    $.ajax({
+      url: ajaxurl,
+      type: "POST",
+      data: {
+        action: "get_restricted_users_paginated", // Make sure this matches the PHP action
+        security: wpEmailRestriction.nonce,
+        page: currentPage,
+        per_page: loadMoreSize,
+        search_term: getSearchTerm(),
+        search_field: getSearchField(),
+      },
+      success: function (response) {
+        if (
+          response.success &&
+          response.data &&
+          response.data.users &&
+          response.data.users.length > 0
+        ) {
+          // Append new users to table
+          appendUsersToTable(response.data.users);
+
+          // Update counters
+          loadedUsers += response.data.users.length;
+          totalUsers = response.data.total;
+
+          // Update display counter
+          updateUserCount();
+
+          // Re-initialize buttons for new rows
+          initTableButtons();
+
+          // Update button text or hide it
+          const remaining = totalUsers - loadedUsers;
+          if (remaining > 0) {
+            $button
+              .prop("disabled", false)
+              .text(`Load More Users (${remaining} remaining)`);
+          } else {
+            $button.hide();
+          }
+        } else {
+          // No more users or error - hide button
+          $button.hide();
+          if (response.data && response.data.message) {
+            showNotice(response.data.message, "info");
+          }
+        }
+      },
+      error: function (xhr, status, error) {
+        showNotice("Error loading more users: " + error, "error");
+        $button.prop("disabled", false).text(originalText);
+      },
+      complete: function () {
+        loading = false;
+      },
+    });
+  }
+
+  // Append users to existing table
+  function appendUsersToTable(users) {
+    const $tbody = $(".wp-list-table tbody");
+    const currentTab = getCurrentTab();
+
+    users.forEach(function (user) {
+      const row = `
+        <tr>
+          <th class="check-column">
+            <input type="checkbox" name="bulk-delete[]" value="${user.id}">
+          </th>
+          <td>${user.id}</td>
+          <td><strong>${escapeHtml(user.name || "")}</strong></td>
+          <td>${escapeHtml(user.email || "")}</td>
+          <td>${formatDate(user.created_at)}</td>
+          <td class="actions">
+            <button type="button" class="button edit-user"
+                data-id="${user.id}"
+                data-name="${escapeHtml(user.name || "")}"
+                data-email="${escapeHtml(user.email || "")}"
+                data-tab="${currentTab}"
+                title="Edit user: ${escapeHtml(user.name || "")}">
+                Edit
+            </button>
+            <button type="button" class="button delete-user" 
+                data-id="${user.id}"
+                title="Delete user: ${escapeHtml(user.name || "")}">
+                Delete
+            </button>
+          </td>
+        </tr>
+      `;
+      $tbody.append(row);
+    });
+  }
+
+  // Update user count display
+  function updateUserCount() {
+    $(".displaying-num").text(`Showing ${loadedUsers} of ${totalUsers} users`);
+  }
+
+  // Format date helper
+  function formatDate(dateString) {
+    if (!dateString) return "N/A";
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString() + " " + date.toLocaleTimeString();
+    } catch (e) {
+      return "N/A";
+    }
+  }
+
+  // Get current search term
+  function getSearchTerm() {
+    const searchInput = $("input[name='search_term']");
+    return searchInput.length ? searchInput.val() || "" : "";
+  }
+
+  // Get current search field
+  function getSearchField() {
+    const searchField = $("select[name='search_field']");
+    return searchField.length ? searchField.val() || "all" : "all";
+  }
+
+  // Initialize table buttons - Force attach events to existing elements
+  function initTableButtons() {
+    // Ensure event handlers are attached (remove first to avoid duplicates)
+    $(document).off("click.table-buttons");
+
+    // Re-attach with namespace to avoid conflicts
+    $(document).on("click.table-buttons", ".edit-user", handleEditClick);
+    $(document).on("click.table-buttons", ".delete-user", handleDeleteClick);
+  }
 
   // Initialize modals
   function initModals() {
@@ -77,90 +246,62 @@
     });
   }
 
-  // Initialize edit user modal
+  // Handle edit button clicks - Separate function for reliable attachment
+  function handleEditClick(e) {
+    e.preventDefault();
+
+    const $button = $(this);
+    const id = $button.data("id");
+    const name = $button.data("name");
+    const email = $button.data("email");
+    const tab = $button.data("tab") || getCurrentTab();
+
+    // Validate data
+    if (!id || !name || !email) {
+      alert("Error: Missing user data for user ID: " + id);
+      return;
+    }
+
+    // Populate modal fields
+    $("#user_id").val(id);
+    $("#user_id_reset").val(id);
+    $("#name_edit").val(name);
+    $("#email_edit").val(email);
+    $("#password_edit").val("");
+    $("#edit_form_tab").val(tab);
+
+    // Show the modal
+    $("#edit-user-modal").show();
+  }
+
+  // Handle delete button clicks - Separate function for reliable attachment
+  function handleDeleteClick(e) {
+    e.preventDefault();
+
+    const $button = $(this);
+    const id = $button.data("id");
+    const userName = $button
+      .closest("tr")
+      .find("td:nth-child(3)")
+      .text()
+      .trim();
+
+    if (!id) {
+      alert("Error: Missing user ID");
+      return;
+    }
+
+    if (confirm(`Are you sure you want to delete user "${userName}"?`)) {
+      deleteUser(id, $button.closest("tr"));
+    }
+  }
+
+  // Initialize edit user modal - SIMPLIFIED
   function initEditUserModal() {
-    // Show edit modal when edit button is clicked
-    $(document).on("click", ".edit-user", function (e) {
-      e.preventDefault();
-
-      const id = $(this).data("id");
-      const name = $(this).data("name");
-      const email = $(this).data("email");
-      const tab = $(this).data("tab") || getCurrentTab();
-
-      console.log("Edit user clicked:", { id, name, email, tab }); // Debug
-
-      // Populate modal fields
-      $("#user_id").val(id);
-      $("#user_id_reset").val(id);
-      $("#name_edit").val(name);
-      $("#email_edit").val(email);
-      $("#password_edit").val("");
-      $("#edit_form_tab").val(tab);
-
-      // Show the modal
-      $("#edit-user-modal").show();
-    });
-
-    // Ensure modal is properly hidden on page load
+    // Modal is initialized via initTableButtons() function
+    // Hide modal on page load
     $("#edit-user-modal").hide();
     $("#password-display-modal").hide();
-  }
-
-  // Initialize pagination
-  function initPagination() {
-    // Load more users on scroll
-    $(window).on("scroll", function () {
-      if (
-        $(window).scrollTop() + $(window).height() >
-        $(document).height() - 200
-      ) {
-        if (!loading && currentPage < totalPages) {
-          loadMoreUsers();
-        }
-      }
-    });
-
-    // Handle pagination clicks
-    $(document).on("click", ".tablenav-pages a", function (e) {
-      e.preventDefault();
-      const href = $(this).attr("href");
-      if (href) {
-        const pageMatch = href.match(/page=(\d+)/);
-        if (pageMatch) {
-          const page = parseInt(pageMatch[1]);
-          if (page) {
-            loadUsersPage(page);
-          }
-        }
-      }
-    });
-  }
-
-  // Initialize search
-  function initSearch() {
-    // Debounce search input
-    const searchInput = $("input[name='search_term']");
-    let searchTimer;
-
-    searchInput.on("input", function () {
-      clearTimeout(searchTimer);
-
-      searchTimer = setTimeout(function () {
-        searchTerm = searchInput.val();
-        currentPage = 1;
-        loadUsersPage(1);
-      }, 500);
-    });
-
-    // Handle search field change
-    $("select[name='search_field']").on("change", function () {
-      searchField = $(this).val();
-      if (searchTerm) {
-        currentPage = 1;
-        loadUsersPage(1);
-      }
-    });
   }
 
   // Initialize bulk actions
@@ -204,179 +345,10 @@
       }
     });
 
-    // Handle delete button click
-    $(document).on("click", ".delete-user", function (e) {
-      e.preventDefault();
-      const id = $(this).data("id");
-
-      if (confirm("Are you sure you want to delete this user?")) {
-        deleteUser(id, $(this).closest("tr"));
-      }
-    });
+    // Note: Individual delete handled in initTableButtons()
   }
 
-  // Load users page
-  function loadUsersPage(page) {
-    loading = true;
-    currentPage = page;
-
-    // Show loading indicator
-    $("#users-loading").show();
-    $(".tablenav").addClass("loading");
-
-    // Load users via AJAX
-    $.ajax({
-      url: ajaxurl,
-      type: "POST",
-      data: {
-        action: "get_restricted_users",
-        security: wpEmailRestriction.nonce,
-        page: page,
-        per_page: perPage,
-        search_term: searchTerm,
-        search_field: searchField,
-        orderby: orderBy,
-        order: order,
-      },
-      success: function (response) {
-        if (response.success) {
-          // Update table with users
-          updateUsersTable(response.data);
-
-          // Update pagination info
-          updatePaginationInfo(response.data);
-
-          // Update total pages
-          totalPages = response.data.total_pages;
-        } else {
-          console.error("Error loading users:", response);
-        }
-      },
-      error: function (xhr, status, error) {
-        console.error("AJAX error:", error);
-        showNotice("Error loading users. Please try again.", "error");
-      },
-      complete: function () {
-        // Hide loading indicator
-        $("#users-loading").hide();
-        $(".tablenav").removeClass("loading");
-        loading = false;
-      },
-    });
-  }
-
-  // Load more users (append to existing)
-  function loadMoreUsers() {
-    loading = true;
-    currentPage++;
-
-    // Show loading indicator
-    $("#load-more-spinner").show();
-
-    // Load users via AJAX
-    $.ajax({
-      url: ajaxurl,
-      type: "POST",
-      data: {
-        action: "get_restricted_users",
-        security: wpEmailRestriction.nonce,
-        page: currentPage,
-        per_page: perPage,
-        search_term: searchTerm,
-        search_field: searchField,
-        orderby: orderBy,
-        order: order,
-      },
-      success: function (response) {
-        if (response.success) {
-          // Append users to table
-          appendUsersToTable(response.data);
-
-          // Update pagination info
-          updatePaginationInfo(response.data);
-
-          // Update total pages
-          totalPages = response.data.total_pages;
-        }
-      },
-      complete: function () {
-        // Hide loading indicator
-        $("#load-more-spinner").hide();
-        loading = false;
-      },
-    });
-  }
-
-  // Update users table with fresh data
-  function updateUsersTable(data) {
-    const users = data.users;
-    let html = "";
-
-    // Generate table rows
-    for (let i = 0; i < users.length; i++) {
-      html += generateUserRow(users[i]);
-    }
-
-    // Update table body
-    $(".wp-list-table tbody").html(html);
-  }
-
-  // Append users to existing table
-  function appendUsersToTable(data) {
-    const users = data.users;
-    let html = "";
-
-    // Generate table rows
-    for (let i = 0; i < users.length; i++) {
-      html += generateUserRow(users[i]);
-    }
-
-    // Append to table body
-    $(".wp-list-table tbody").append(html);
-  }
-
-  // Generate single user row HTML
-  function generateUserRow(user) {
-    // Format date
-    const date = new Date(user.created_at);
-    const formattedDate =
-      date.toLocaleDateString() + " " + date.toLocaleTimeString();
-
-    // Generate row HTML
-    return `
-          <tr>
-              <th class="check-column">
-                  <input type="checkbox" name="bulk-delete[]" value="${
-                    user.id
-                  }">
-              </th>
-              <td>${user.id}</td>
-              <td>${escapeHtml(user.name)}</td>
-              <td>${escapeHtml(user.email)}</td>
-              <td>${formattedDate}</td>
-              <td>
-                  <button type="button" class="button edit-user"
-                      data-id="${user.id}"
-                      data-name="${escapeHtml(user.name)}"
-                      data-email="${escapeHtml(user.email)}"
-                      data-tab="${getCurrentTab()}">
-                      Edit
-                  </button>
-                  <a href="#" class="button delete-user" data-id="${user.id}">
-                      Delete
-                  </a>
-              </td>
-          </tr>
-      `;
-  }
-
-  // Update pagination information
-  function updatePaginationInfo(data) {
-    const showing = Math.min(currentPage * perPage, data.total);
-    $(".displaying-num").text(`Showing ${showing} of ${data.total} users`);
-  }
-
-  // Delete a single user
+  // Delete a single user - SIMPLIFIED
   function deleteUser(id, rowElement) {
     $.ajax({
       url: ajaxurl,
@@ -388,43 +360,43 @@
       },
       beforeSend: function () {
         rowElement.addClass("deleting");
+        rowElement
+          .find(".delete-user")
+          .prop("disabled", true)
+          .text("Deleting...");
       },
       success: function (response) {
         if (response.success) {
           rowElement.fadeOut(300, function () {
             $(this).remove();
-
-            // If all rows are removed, refresh to show "no users found"
-            if ($(".wp-list-table tbody tr").length === 0) {
-              loadUsersPage(1);
-            }
+            // Update counters
+            loadedUsers--;
+            totalUsers--;
+            updateUserCount();
           });
-
-          // Show success message
           showNotice(
             response.data.message || "User deleted successfully",
             "success"
           );
         } else {
           rowElement.removeClass("deleting");
+          rowElement
+            .find(".delete-user")
+            .prop("disabled", false)
+            .text("Delete");
           showNotice(response.data.message || "Error deleting user", "error");
         }
       },
-      error: function () {
+      error: function (xhr, status, error) {
         rowElement.removeClass("deleting");
+        rowElement.find(".delete-user").prop("disabled", false).text("Delete");
         showNotice("Server error while deleting user", "error");
       },
     });
   }
 
-  // Bulk delete users
+  // Bulk delete users - SIMPLIFIED
   function bulkDeleteUsers(ids) {
-    // Show progress indicator
-    $("#bulk-operation-progress").removeClass("hidden");
-    $(".progress-bar-fill").css("width", "0%");
-    $(".total-count").text(ids.length);
-    $(".processed-count").text("0");
-
     $.ajax({
       url: ajaxurl,
       type: "POST",
@@ -434,7 +406,6 @@
         ids: ids,
       },
       beforeSend: function () {
-        // Mark selected rows
         ids.forEach(function (id) {
           $(`input[name='bulk-delete[]'][value='${id}']`)
             .closest("tr")
@@ -443,55 +414,51 @@
       },
       success: function (response) {
         if (response.success) {
-          // Update progress bar to 100%
-          $(".progress-bar-fill").css("width", "100%");
-          $(".processed-count").text(ids.length);
-
-          // Show success message
           showNotice(response.data.message, "success");
 
-          // Reload users table after a brief delay
-          setTimeout(function () {
-            loadUsersPage(1);
-            $("#bulk-operation-progress").addClass("hidden");
-          }, 1000);
+          // Remove deleted rows and update counters
+          let deletedCount = 0;
+          ids.forEach(function (id) {
+            $(`input[name='bulk-delete[]'][value='${id}']`)
+              .closest("tr")
+              .fadeOut(300, function () {
+                $(this).remove();
+                deletedCount++;
+                if (deletedCount === ids.length) {
+                  // Update counters after all rows are removed
+                  loadedUsers -= ids.length;
+                  totalUsers -= ids.length;
+                  updateUserCount();
+                }
+              });
+          });
         } else {
-          // Hide progress indicator
-          $("#bulk-operation-progress").addClass("hidden");
-
-          // Show error message
           showNotice("Error performing bulk delete", "error");
-
-          // Remove deleting class
           $(".wp-list-table tbody tr.deleting").removeClass("deleting");
         }
       },
-      error: function () {
-        // Hide progress indicator
-        $("#bulk-operation-progress").addClass("hidden");
-
-        // Show error message
+      error: function (xhr, status, error) {
         showNotice("Server error while performing bulk delete", "error");
-
-        // Remove deleting class
         $(".wp-list-table tbody tr.deleting").removeClass("deleting");
       },
     });
   }
 
-  // Show notice message
+  // Show notice message - SIMPLIFIED
   function showNotice(message, type) {
-    const notice = $(
-      `<div class="notice notice-${type} is-dismissible"><p>${message}</p></div>`
-    );
+    // Remove existing notices
+    $(".notice.temp-notice").remove();
 
-    // Add dismiss button
-    const dismissButton = $(
-      '<button type="button" class="notice-dismiss"><span class="screen-reader-text">Dismiss this notice.</span></button>'
-    );
-    notice.append(dismissButton);
+    const notice = $(`
+      <div class="notice notice-${type} is-dismissible temp-notice">
+        <p>${message}</p>
+        <button type="button" class="notice-dismiss">
+          <span class="screen-reader-text">Dismiss this notice.</span>
+        </button>
+      </div>
+    `);
 
-    // Add notice to the page
+    // Add notice
     $(".wrap > h1").after(notice);
 
     // Auto-dismiss after 5 seconds
@@ -502,7 +469,7 @@
     }, 5000);
 
     // Handle dismiss button click
-    dismissButton.on("click", function () {
+    notice.find(".notice-dismiss").on("click", function () {
       notice.fadeOut(300, function () {
         $(this).remove();
       });
@@ -517,17 +484,12 @@
 
   // Escape HTML for security
   function escapeHtml(text) {
-    return $("<div>").text(text).html();
+    if (!text) return "";
+    return $("<div>").text(String(text)).html();
   }
 
-  // Debug function to test modal
-  window.testModal = function () {
-    $("#edit-user-modal").show();
-  };
-
-  // Add some debug info
-  if (window.console) {
-    console.log("WP Email Restriction Admin JS loaded");
-    console.log("Current tab:", getCurrentTab());
-  }
+  // Force initialization after a delay to ensure DOM is fully ready
+  setTimeout(function () {
+    initTableButtons();
+  }, 500);
 })(jQuery);

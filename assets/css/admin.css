@@ -1,4 +1,4 @@
-/* Loading indicator styles */
+/* Basic Loading indicator styles */
 .loading-overlay {
   position: fixed;
   top: 0;
@@ -45,7 +45,7 @@ tr.deleting {
 
 .progress-bar {
   height: 20px;
-  background-color: #e0e0e0;
+  background-color: #f0f0f0;
   border-radius: 10px;
   overflow: hidden;
 }
@@ -67,71 +67,46 @@ tr.deleting {
   display: none;
 }
 
-/* Modal enhancements */
-.modal-content {
-  max-width: 600px;
-  width: 90%;
-}
-
-.wp-list-table {
-  border-collapse: collapse;
+/* Modal styles */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
   width: 100%;
-}
-
-.wp-list-table th,
-.wp-list-table td {
-  padding: 10px;
-}
-
-/* Responsive enhancements */
-@media screen and (max-width: 782px) {
-  .wp-list-table {
-    table-layout: auto;
-  }
-
-  .wp-list-table th,
-  .wp-list-table td {
-    padding: 8px 5px;
-    font-size: 13px;
-  }
-
-  .tablenav {
-    height: auto;
-    padding: 10px 0;
-  }
-
-  .bulkactions {
-    margin-bottom: 10px;
-  }
-}
-
-/* Search box improvements */
-.search-box {
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-bottom: 15px;
+  justify-content: center;
 }
 
-.search-box input[type="text"] {
-  flex: 1;
-  min-width: 200px;
+.modal-content {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
 }
 
-/* Improve tablenav display */
-.tablenav.top {
-  clear: both;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
+.close-modal {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+  line-height: 1;
 }
 
-/* Modal improvements */
-.modal {
-  background-color: rgba(0, 0, 0, 0.5);
+.close-modal:hover {
+  color: #000;
 }
 
+/* Password display styles */
 .password-display {
   background-color: #f8f8f8;
   padding: 10px;
@@ -151,6 +126,293 @@ tr.deleting {
   margin-right: 10px;
 }
 
+/* Basic table styles */
+.wp-list-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.wp-list-table th,
+.wp-list-table td {
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+.wp-list-table thead th {
+  background-color: #f9f9f9;
+  font-weight: 600;
+}
+
+.wp-list-table tbody tr:hover {
+  background-color: #f5f5f5;
+}
+
+/* Card styles */
 .card {
   max-width: 660px;
+  background: white;
+  border: 1px solid #ccd0d4;
+  border-radius: 4px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.card h2,
+.card h3 {
+  margin-top: 0;
+}
+
+/* Search box styles */
+.search-box {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 15px;
+  padding: 15px;
+  background: #f9f9f9;
+  border-radius: 4px;
+}
+
+.search-box input[type="text"] {
+  flex: 1;
+  min-width: 200px;
+  padding: 8px;
+  border: 1px solid #ccd0d4;
+  border-radius: 4px;
+}
+
+.search-box select {
+  padding: 8px;
+  border: 1px solid #ccd0d4;
+  border-radius: 4px;
+}
+
+/* Button styles */
+.button {
+  display: inline-block;
+  text-decoration: none;
+  font-size: 13px;
+  line-height: 2.15384615;
+  min-height: 30px;
+  margin: 0;
+  padding: 0 10px;
+  cursor: pointer;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 3px;
+  white-space: nowrap;
+  box-sizing: border-box;
+  background: #f6f7f7;
+  border-color: #ddd;
+  color: #555;
+}
+
+.button:hover {
+  background: #f0f0f1;
+  border-color: #999;
+  color: #23282d;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.button-primary {
+  background: #0073aa;
+  border-color: #0073aa;
+  color: #fff;
+}
+
+.button-primary:hover {
+  background: #005a87;
+  border-color: #005a87;
+}
+
+/* Tablenav styles */
+.tablenav {
+  clear: both;
+  margin: 6px 0 4px;
+  padding: 0;
+}
+
+.tablenav.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.bulkactions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.displaying-num {
+  color: #646970;
+  font-size: 14px;
+}
+
+/* Actions column */
+.actions {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+/* Notice styles */
+.notice {
+  background: #fff;
+  border-left: 4px solid #fff;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+  margin: 5px 15px 5px 0;
+  padding: 1px 12px;
+}
+
+.notice-success {
+  border-left-color: #00a32a;
+}
+
+.notice-error {
+  border-left-color: #d63638;
+}
+
+.notice-dismiss {
+  float: right;
+  padding: 9px;
+  margin: -9px;
+  text-decoration: none;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+/* Form styles */
+.form-table {
+  width: 100%;
+}
+
+.form-table th {
+  width: 200px;
+  padding: 20px 10px 20px 0;
+  vertical-align: top;
+  text-align: left;
+}
+
+.form-table td {
+  padding: 15px 10px;
+  vertical-align: top;
+}
+
+.regular-text {
+  width: 25em;
+  padding: 3px 5px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.description {
+  font-style: italic;
+  color: #666;
+  margin-top: 5px;
+}
+
+/* Responsive design */
+@media screen and (max-width: 782px) {
+  .wp-list-table {
+    table-layout: auto;
+  }
+
+  .wp-list-table th,
+  .wp-list-table td {
+    padding: 8px 5px;
+    font-size: 13px;
+  }
+
+  .tablenav {
+    height: auto;
+    padding: 10px 0;
+  }
+
+  .bulkactions {
+    margin-bottom: 10px;
+  }
+
+  .search-box {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-box input[type="text"] {
+    min-width: auto;
+    width: 100%;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  .actions .button {
+    width: 100%;
+    margin: 2px 0;
+  }
+
+  .modal-content {
+    width: 95%;
+    margin: 10px;
+  }
+}
+
+/* Animation for smooth transitions */
+.fade-out {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* No users found message */
+.no-users-found {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+/* Tab navigation */
+.nav-tab-wrapper {
+  border-bottom: 1px solid #ccd0d4;
+  margin: 0 0 20px;
+  padding: 0;
+}
+
+.nav-tab {
+  float: left;
+  border: 1px solid #ccd0d4;
+  border-bottom: none;
+  margin-left: 0.5em;
+  padding: 5px 14px;
+  font-size: 12px;
+  line-height: 16px;
+  text-decoration: none;
+  background: #f1f1f1;
+  color: #555;
+}
+
+.nav-tab-active {
+  background: #fff;
+  border-bottom: 1px solid #fff;
+  color: #000;
+}
+
+/* Hide tab content */
+.tab-content {
+  clear: both;
+}
+
+/* Focus styles for accessibility */
+.button:focus,
+input:focus,
+select:focus {
+  outline: 2px solid #0073aa;
+  outline-offset: 2px;
 }
