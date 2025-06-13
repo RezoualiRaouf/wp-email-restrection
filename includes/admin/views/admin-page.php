@@ -56,10 +56,6 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
        class="nav-tab <?php echo $active_tab === 'login-settings' ? 'nav-tab-active' : ''; ?>">
        <?php _e('Login Page', 'wp-email-restriction'); ?>
     </a>
-    <a href="<?php echo admin_url('admin.php?page=wp-email-restriction&tab=advanced'); ?>"
-       class="nav-tab <?php echo $active_tab === 'advanced' ? 'nav-tab-active' : ''; ?>">
-       <?php _e('Advanced', 'wp-email-restriction'); ?>
-    </a>
   </h2>
 
   <!-- Main Tab -->
@@ -248,83 +244,6 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
              <?php _e('Preview Login Page'); ?>
           </a>
           
-  <?php endif; ?>
-
-  <!-- Advanced Tab -->
-  <?php if ($active_tab === 'advanced') : ?>
-    <div class="card">
-      <h2><?php _e('Advanced Settings', 'wp-email-restriction'); ?></h2>
-      
-      <h3><?php _e('System Information', 'wp-email-restriction'); ?></h3>
-      <table class="form-table">
-        <tr>
-          <th><?php _e('Plugin Version'); ?></th>
-          <td><?php echo WP_EMAIL_RESTRICTION_VERSION; ?></td>
-        </tr>
-        <tr>
-          <th><?php _e('Database Version'); ?></th>
-          <td><?php echo get_option('wp_email_restriction_version', 'Unknown'); ?></td>
-        </tr>
-        <tr>
-          <th><?php _e('Total Users'); ?></th>
-          <td><?php echo $user_data['total']; ?></td>
-        </tr>
-        <tr>
-          <th><?php _e('Allowed Domain'); ?></th>
-          <td>@univ-bouira.dz</td>
-        </tr>
-      </table>
-      
-      <h3><?php _e('Export Data', 'wp-email-restriction'); ?></h3>
-      <p><?php _e('Export all user data for backup or migration purposes.'); ?></p>
-      <a href="<?php echo wp_nonce_url(admin_url('admin.php?page=wp-email-restriction&action=export_users'), 'export_users'); ?>" 
-         class="button"><?php _e('Export Users (CSV)'); ?></a>
-    </div>
-  <?php endif; ?>
-
-  <!-- Edit Modal -->
-  <?php if (in_array($active_tab, ['main', 'settings'])) : ?>
-  <div id="edit-user-modal" class="modal" style="display: none;">
-    <div class="modal-content">
-      <span class="close-modal">&times;</span>
-      <h2><?php _e('Edit User'); ?></h2>
-      <form method="post" action="">
-        <?php wp_nonce_field('user_edit_nonce', 'user_edit_nonce'); ?>
-        <input type="hidden" name="tab" id="edit_form_tab" value="<?php echo esc_attr($active_tab); ?>">
-        <input type="hidden" name="user_id" id="user_id" value="">
-        <table class="form-table">
-          <tr>
-            <th><label for="name_edit"><?php _e('Full Name'); ?></label></th>
-            <td><input type="text" name="name" id="name_edit" class="regular-text" required></td>
-          </tr>
-          <tr>
-            <th><label for="email_edit"><?php _e('Email Address'); ?></label></th>
-            <td>
-              <input type="email" name="email" id="email_edit" class="regular-text" required>
-              <p class="description"><?php _e('Only @univ-bouira.dz addresses are allowed.'); ?></p>
-            </td>
-          </tr>
-          <tr>
-            <th><label for="password_edit"><?php _e('Password'); ?></label></th>
-            <td>
-              <input type="password" name="password" id="password_edit" class="regular-text">
-              <p class="description"><?php _e('Leave blank to keep existing password.'); ?></p>
-            </td>
-          </tr>
-        </table>
-        <?php submit_button(__('Save Changes'), 'primary', 'edit_user'); ?>
-      </form>
-      <div class="reset-password-section">
-        <h3><?php _e('Reset Password'); ?></h3>
-        <form method="post" action="">
-          <?php wp_nonce_field('reset_password_nonce', 'reset_password_nonce'); ?>
-          <input type="hidden" name="user_id_reset" id="user_id_reset" value="">
-          <input type="hidden" name="tab" value="<?php echo esc_attr($active_tab); ?>">
-          <?php submit_button(__('Reset Password'), 'secondary', 'reset_password'); ?>
-        </form>
-      </div>
-    </div>
-  </div>
   <?php endif; ?>
 
   <!-- Password Display Modal -->
