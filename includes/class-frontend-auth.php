@@ -1,6 +1,6 @@
 <?php
 /**
- * Frontend Authentication
+ * Enhanced Frontend Authentication with Preview Mode
  *
  * @package WP_Email_Restriction
  */
@@ -39,8 +39,7 @@ class WP_Email_Restriction_Frontend_Auth {
         
         // Handle export functionality
         add_action('admin_init', [$this, 'handle_export']);
-        
-   }
+    }
     
     public function start_session() {
         if (!session_id() && !headers_sent()) {
@@ -147,7 +146,7 @@ class WP_Email_Restriction_Frontend_Auth {
         // Remove preview parameter from redirect URL
         $redirect_url = remove_query_arg('restricted_login', $redirect_url);
         
-        // Check if this is preview mode
+        // 🆕 Check if this is preview mode
         $is_preview_mode = $this->is_preview_mode();
         $is_admin = $this->is_admin_user();
         
@@ -166,7 +165,7 @@ class WP_Email_Restriction_Frontend_Auth {
         $redirect_url = esc_url($_POST['redirect_url'] ?? home_url());
         $is_preview = $_POST['is_preview'] ?? false;
         
-        // PREVIEW MODE: Allow WordPress admin login
+        // 🆕 PREVIEW MODE: Allow WordPress admin login
         if ($is_preview && $this->is_admin_user()) {
             $wp_user = wp_get_current_user();
             
@@ -247,7 +246,6 @@ class WP_Email_Restriction_Frontend_Auth {
         ));
     }
     
-   
     public function enqueue_frontend_scripts() {
         if ($this->is_login_page() || !$this->is_user_authenticated()) {
             wp_enqueue_script(

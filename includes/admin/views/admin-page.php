@@ -243,15 +243,11 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
         <?php submit_button(__('Save Settings'), 'primary', 'save_login_settings'); ?>
       </form>
       
-      <div class="card" style="margin-top: 20px;">
-        <h3><?php _e('Preview', 'wp-email-restriction'); ?></h3>
-        <p><?php _e('View your customized login page:'); ?> 
-           <a href="<?php echo home_url('?restricted_login=1'); ?>" target="_blank" class="button">
+          <a href="<?php echo home_url('?restricted_login=preview'); ?>" target="_blank" 
+             class="button button-primary" style="font-size: 14px; padding: 8px 8px;">
              <?php _e('Preview Login Page'); ?>
-           </a>
-        </p>
-      </div>
-    </div>
+          </a>
+          
   <?php endif; ?>
 
   <!-- Advanced Tab -->

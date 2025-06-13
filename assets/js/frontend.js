@@ -1,5 +1,5 @@
 /**
- * Frontend JavaScript for WP Email Restriction
+ * Enhanced Frontend JavaScript for WP Email Restriction with Preview Mode
  */
 (function ($) {
   "use strict";
@@ -7,6 +7,11 @@
   $(document).ready(function () {
     initLoginForm();
     initLogoutLink();
+
+    // 🆕 Initialize preview mode features
+    if (wpEmailRestrictionFrontend.is_preview) {
+      initPreviewMode();
+    }
   });
 
   function initLoginForm() {
@@ -29,7 +34,7 @@
         password: $("#password").val(),
         nonce: $('input[name="nonce"]').val(),
         redirect_url: $('input[name="redirect_url"]').val(),
-        is_preview: $('input[name="is_preview"]').val(),
+        is_preview: $('input[name="is_preview"]').val(), // 🆕 Include preview mode
       };
 
       // Basic validation
@@ -56,10 +61,15 @@
           if (response.success) {
             showMessage(response.data.message, "success");
 
+            // 🆕 Add delay for preview mode to show success message
+            const redirectDelay = wpEmailRestrictionFrontend.is_preview
+              ? 1500
+              : 1000;
+
             // Redirect after successful login
             setTimeout(function () {
               window.location.href = response.data.redirect_url;
-            }, 1000);
+            }, redirectDelay);
           } else {
             showMessage(response.data.message, "error");
             setLoadingState(false);
@@ -170,6 +180,98 @@
         },
       });
     });
+  }
+
+  // 🆕 Initialize preview mode specific features
+  function initPreviewMode() {
+    // Add preview mode indicator to console for debugging
+    console.log("🔍 Preview Mode Active - Admin Testing Enabled");
+
+    // Add preview mode class to body for CSS styling
+    $("body").addClass("preview-mode");
+
+    // Auto-focus password field if email is pre-filled
+    if ($("#email").val().trim() !== "") {
+      $("#password").focus();
+    }
+
+    // Add preview-specific styling
+    addPreviewModeStyles();
+
+    // Show helpful tooltips for admin testing
+    showPreviewTooltips();
+  }
+
+  // 🆕 Add preview mode specific styles
+  function addPreviewModeStyles() {
+    const previewCSS = `
+      <style id="preview-mode-styles">
+        .test-user-hint {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          padding: 15px;
+          margin: 15px 30px;
+          border-radius: 8px;
+          text-align: center;
+          animation: pulseGlow 2s ease-in-out infinite alternate;
+        }
+        
+        .test-user-hint code {
+          background: rgba(255,255,255,0.2);
+          padding: 2px 6px;
+          border-radius: 3px;
+          font-family: monospace;
+          color: #fff;
+        }
+        
+        @keyframes pulseGlow {
+          from { box-shadow: 0 0 20px rgba(102, 126, 234, 0.4); }
+          to { box-shadow: 0 0 30px rgba(118, 75, 162, 0.6); }
+        }
+        
+        .preview-mode .login-button {
+          position: relative;
+          overflow: hidden;
+        }
+        
+        .preview-mode .login-button::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: -100%;
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(
+            90deg,
+            transparent,
+            rgba(255,255,255,0.2),
+            transparent
+          );
+          transition: left 0.5s;
+        }
+        
+        .preview-mode .login-button:hover::before {
+          left: 100%;
+        }
+      </style>
+    `;
+
+    $("head").append(previewCSS);
+  }
+
+  // 🆕 Show helpful tooltips for preview mode
+  function showPreviewTooltips() {
+    // Add tooltip to password field
+    $("#password").attr("title", "Use your WordPress admin password");
+
+    // Add visual feedback when admin email is detected
+    const emailField = $("#email");
+    if (emailField.val().includes("admin") || emailField.val().includes("@")) {
+      emailField.css({
+        "border-color": "#667eea",
+        "box-shadow": "0 0 5px rgba(102, 126, 234, 0.3)",
+      });
+    }
   }
 
   // Add some nice animations
