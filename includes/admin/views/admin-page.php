@@ -46,7 +46,7 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
     </a>
     <a href="<?php echo admin_url('admin.php?page=wp-email-restriction&tab=settings'); ?>"
        class="nav-tab <?php echo $active_tab === 'settings' ? 'nav-tab-active' : ''; ?>">
-       <?php _e('Add Users', 'wp-email-restriction'); ?>
+       <?php _e('Settings', 'wp-email-restriction'); ?>
     </a>
     <a href="<?php echo admin_url('admin.php?page=wp-email-restriction&tab=uploads'); ?>"
        class="nav-tab <?php echo $active_tab === 'uploads' ? 'nav-tab-active' : ''; ?>">
@@ -64,7 +64,8 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
 
   <!-- Main Tab -->
   <?php if ($active_tab === 'main') : ?>
-    <div class="card">
+    <div class="card_container">
+    <div class="card card_half">
       <h2><?php _e('Search Users', 'wp-email-restriction'); ?></h2>
       <form method="post" action="">
         <?php wp_nonce_field('search_users_nonce', 'search_nonce'); ?>
@@ -86,14 +87,7 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
         </div>
       </form>
     </div>
-
-    <h2><?php _e('Registered Users', 'wp-email-restriction'); ?></h2>
-    <?php $this->render_users_table($user_data, $search_term, $search_field, 'main'); ?>
-  <?php endif; ?>
-
-  <!-- Settings Tab -->
-  <?php if ($active_tab === 'settings') : ?>
-    <div class="card">
+    <div class="card card_half">
       <h2><?php _e('Add New User', 'wp-email-restriction'); ?></h2>
       <form method="post" action="">
         <?php wp_nonce_field('add_user_nonce', 'user_nonce'); ?>
@@ -121,7 +115,14 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
         <?php submit_button(__('Add User'), 'primary', 'add_user'); ?>
       </form>
     </div>
+</div>
+    <h2><?php _e('Registered Users', 'wp-email-restriction'); ?></h2>
+    <?php $this->render_users_table($user_data, $search_term, $search_field, 'main'); ?>
   <?php endif; ?>
+
+  <!-- Settings Tab -->
+  <?php if ($active_tab === 'settings') : ?>
+      <?php endif; ?>
 
   <!-- Uploads Tab -->
   <?php if ($active_tab === 'uploads') : ?>
