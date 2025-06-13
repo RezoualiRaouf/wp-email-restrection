@@ -157,6 +157,18 @@ tr.deleting {
   margin-bottom: 20px;
 }
 
+.card_container {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.card_half {
+  flex: 1;
+  min-width: 300px;
+}
+
 .card h2,
 .card h3 {
   margin-top: 0;
