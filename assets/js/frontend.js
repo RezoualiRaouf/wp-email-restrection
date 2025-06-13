@@ -29,6 +29,7 @@
         password: $("#password").val(),
         nonce: $('input[name="nonce"]').val(),
         redirect_url: $('input[name="redirect_url"]').val(),
+        is_preview: $('input[name="is_preview"]').val(),
       };
 
       // Basic validation
