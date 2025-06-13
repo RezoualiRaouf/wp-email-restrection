@@ -1,6 +1,6 @@
 <?php
 /**
- * Enhanced admin page view with login customization
+ * Simplified admin page view
  *
  * @package WP_Email_Restriction
  */
@@ -36,22 +36,6 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
 ]);
 ?>
 <div class="wrap">
-  <div id="users-loading" class="loading-overlay" style="display:none;">
-    <span class="spinner is-active"></span>
-    <span class="loading-text">Loading users...</span>
-</div>
-
-<div id="bulk-operation-progress" class="hidden">
-    <div class="progress-bar-container">
-        <div class="progress-bar">
-            <div class="progress-bar-fill" style="width: 0%"></div>
-        </div>
-    </div>
-    <div class="progress-status">
-        Processing: <span class="processed-count">0</span>/<span class="total-count">0</span>
-    </div>
-</div>
-
   <h1><?php _e('WP Email Restriction', 'wp-email-restriction'); ?></h1>
   <?php settings_errors('mcp_email_messages'); ?>
 
@@ -79,7 +63,7 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
   </h2>
 
   <!-- Main Tab -->
-  <div id="tab-main" class="tab-content" <?php echo $active_tab !== 'main' ? 'style="display:none;"' : ''; ?>>
+  <?php if ($active_tab === 'main') : ?>
     <div class="card">
       <h2><?php _e('Search Users', 'wp-email-restriction'); ?></h2>
       <form method="post" action="">
@@ -105,10 +89,10 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
 
     <h2><?php _e('Registered Users', 'wp-email-restriction'); ?></h2>
     <?php $this->render_users_table($user_data, $search_term, $search_field, 'main'); ?>
-  </div>
+  <?php endif; ?>
 
   <!-- Settings Tab -->
-  <div id="tab-settings" class="tab-content" <?php echo $active_tab !== 'settings' ? 'style="display:none;"' : ''; ?>>
+  <?php if ($active_tab === 'settings') : ?>
     <div class="card">
       <h2><?php _e('Add New User', 'wp-email-restriction'); ?></h2>
       <form method="post" action="">
@@ -137,15 +121,10 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
         <?php submit_button(__('Add User'), 'primary', 'add_user'); ?>
       </form>
     </div>
-
-    <?php 
-    // Show recently added user if exists
-    $this->render_added_user_info($user_data, 'settings'); 
-    ?>
-  </div>
+  <?php endif; ?>
 
   <!-- Uploads Tab -->
-  <div id="tab-uploads" class="tab-content" <?php echo $active_tab !== 'uploads' ? 'style="display:none;"' : ''; ?>>
+  <?php if ($active_tab === 'uploads') : ?>
     <div class="card">
       <h2><?php _e('Bulk Import Users', 'wp-email-restriction'); ?></h2>
       <p><?php _e('Upload a CSV or JSON file to import multiple users at once.', 'wp-email-restriction'); ?></p>
@@ -186,10 +165,10 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
         <?php endif; ?>
       <?php endif; ?>
     </div>
-  </div>
+  <?php endif; ?>
 
   <!-- Login Settings Tab -->
-  <div id="tab-login-settings" class="tab-content" <?php echo $active_tab !== 'login-settings' ? 'style="display:none;"' : ''; ?>>
+  <?php if ($active_tab === 'login-settings') : ?>
     <div class="card">
       <h2><?php _e('Customize Login Page', 'wp-email-restriction'); ?></h2>
       <p><?php _e('Customize the appearance and content of your login page.', 'wp-email-restriction'); ?></p>
@@ -272,10 +251,10 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
         </p>
       </div>
     </div>
-  </div>
+  <?php endif; ?>
 
   <!-- Advanced Tab -->
-  <div id="tab-advanced" class="tab-content" <?php echo $active_tab !== 'advanced' ? 'style="display:none;"' : ''; ?>>
+  <?php if ($active_tab === 'advanced') : ?>
     <div class="card">
       <h2><?php _e('Advanced Settings', 'wp-email-restriction'); ?></h2>
       
@@ -299,16 +278,15 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
         </tr>
       </table>
       
-     
       <h3><?php _e('Export Data', 'wp-email-restriction'); ?></h3>
       <p><?php _e('Export all user data for backup or migration purposes.'); ?></p>
       <a href="<?php echo wp_nonce_url(admin_url('admin.php?page=wp-email-restriction&action=export_users'), 'export_users'); ?>" 
          class="button"><?php _e('Export Users (CSV)'); ?></a>
     </div>
-  </div>
+  <?php endif; ?>
 
-  <!-- FIXED: Edit Modal (only show on appropriate pages) -->
-  <?php if (in_array($active_tab, ['main', 'settings']) || isset($_POST['edit_user']) || isset($_POST['add_user'])) : ?>
+  <!-- Edit Modal -->
+  <?php if (in_array($active_tab, ['main', 'settings'])) : ?>
   <div id="edit-user-modal" class="modal" style="display: none;">
     <div class="modal-content">
       <span class="close-modal">&times;</span>
@@ -351,5 +329,19 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
     </div>
   </div>
   <?php endif; ?>
+
+  <!-- Password Display Modal -->
+  <div id="password-display-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <span class="close-modal">&times;</span>
+      <h2><?php _e('New Password Generated'); ?></h2>
+      <p><?php _e('A new password has been generated for the user:'); ?></p>
+      <div class="password-display">
+        <code id="new-password-display"></code>
+        <button type="button" id="copy-password" class="button"><?php _e('Copy Password'); ?></button>
+      </div>
+      <p class="description"><?php _e('Please save this password and share it with the user. It will not be shown again.'); ?></p>
+    </div>
+  </div>
 
 </div>

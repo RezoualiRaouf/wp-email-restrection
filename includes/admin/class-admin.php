@@ -1,6 +1,6 @@
 <?php
 /**
- * Admin functionality
+ * Simplified Admin functionality
  *
  * @package WP_Email_Restriction
  */
@@ -11,7 +11,6 @@ if (!defined('ABSPATH')) {
 
 class WP_Email_Restriction_Admin {
     private $email_manager;
-    private $recently_added_user = null;
 
     public function __construct() {
         $this->email_manager = new WP_Email_Restriction_Email_Manager();
@@ -84,17 +83,7 @@ class WP_Email_Restriction_Admin {
             $email    = sanitize_email($_POST['email']);
             $password = $_POST['password'] ?? '';
             $r        = $this->email_manager->add_user($name, $email, $password);
-            
-            if ($r['status'] === 'success') {
-                // Get the newly added user for display
-                global $wpdb;
-                $table_name = $wpdb->prefix . 'email_restriction';
-                $this->recently_added_user = $wpdb->get_row($wpdb->prepare(
-                    "SELECT * FROM $table_name WHERE email = %s ORDER BY id DESC LIMIT 1", 
-                    $email
-                ));
-            }
-            
+
             add_settings_error(
                 'mcp_email_messages',
                 $r['status'],
@@ -187,7 +176,9 @@ class WP_Email_Restriction_Admin {
             'nonce' => wp_create_nonce('wp_email_restriction_nonce'),
             'ajaxurl' => admin_url('admin-ajax.php'),
             'deleteConfirm' => __('Are you sure you want to delete this user?', 'wp-email-restriction'),
-            'bulkDeleteConfirm' => __('Are you sure you want to delete these users?', 'wp-email-restriction')
+            'bulkDeleteConfirm' => __('Are you sure you want to delete these users?', 'wp-email-restriction'),
+            'initialLoad' => 100,
+            'loadMoreSize' => 50
         ]);
         
         if ($temp) {
@@ -204,8 +195,31 @@ class WP_Email_Restriction_Admin {
 
     public function register_ajax_handlers() {
         add_action('wp_ajax_get_restricted_users', [$this, 'ajax_get_users']);
+        add_action('wp_ajax_get_restricted_users_paginated', [$this, 'ajax_get_users_paginated']);
         add_action('wp_ajax_delete_restricted_user', [$this, 'ajax_delete_user']);
         add_action('wp_ajax_bulk_delete_restricted_users', [$this, 'ajax_bulk_delete_users']);
+    }
+    
+    public function ajax_get_users_paginated() {
+        check_ajax_referer('wp_email_restriction_nonce', 'security');
+        
+        $page = isset($_POST['page']) ? intval($_POST['page']) : 1;
+        $per_page = isset($_POST['per_page']) ? intval($_POST['per_page']) : 50;
+        $search = isset($_POST['search_term']) ? sanitize_text_field($_POST['search_term']) : '';
+        $search_field = isset($_POST['search_field']) ? sanitize_text_field($_POST['search_field']) : 'all';
+        $orderby = 'id';
+        $order = 'DESC';
+        
+        $result = $this->email_manager->get_users_paginated(
+            $page,
+            $per_page,
+            $search,
+            $search_field,
+            $orderby,
+            $order
+        );
+        
+        wp_send_json_success($result);
     }
     
     public function ajax_get_users() {
@@ -239,9 +253,19 @@ class WP_Email_Restriction_Admin {
         }
         
         $user_id = isset($_POST['id']) ? intval($_POST['id']) : 0;
+        
+        if (!$user_id) {
+            wp_send_json_error(['message' => 'Invalid user ID']);
+            return;
+        }
+        
         $result = $this->email_manager->delete_user($user_id);
         
-        wp_send_json_success($result);
+        if ($result['status'] === 'success') {
+            wp_send_json_success($result);
+        } else {
+            wp_send_json_error($result);
+        }
     }
     
     public function ajax_bulk_delete_users() {
@@ -253,28 +277,28 @@ class WP_Email_Restriction_Admin {
         }
         
         $ids = isset($_POST['ids']) ? array_map('intval', $_POST['ids']) : [];
+        
+        if (empty($ids)) {
+            wp_send_json_error(['message' => 'No user IDs provided']);
+            return;
+        }
+        
         $success_count = 0;
         $failed_count = 0;
         
-        // Process in batches
-        $batch_size = 100;
-        $batches = array_chunk($ids, $batch_size);
-        
-        foreach ($batches as $batch) {
-            foreach ($batch as $id) {
-                $result = $this->email_manager->delete_user($id);
-                if ($result['status'] === 'success') {
-                    $success_count++;
-                } else {
-                    $failed_count++;
-                }
+        foreach ($ids as $id) {
+            $result = $this->email_manager->delete_user($id);
+            if ($result['status'] === 'success') {
+                $success_count++;
+            } else {
+                $failed_count++;
             }
         }
         
         wp_send_json_success([
             'deleted' => $success_count,
             'failed' => $failed_count,
-            'message' => sprintf(__('%d users deleted successfully, %d failed.', 'wp-email-restriction'), $success_count, $failed_count)
+            'message' => sprintf(__('%d users deleted successfully.', 'wp-email-restriction'), $success_count)
         ]);
     }
 
@@ -282,72 +306,31 @@ class WP_Email_Restriction_Admin {
         if (!current_user_can('manage_options')) {
             wp_die(__('Insufficient permissions', 'wp-email-restriction'));
         }
+        
         $active_tab   = sanitize_text_field($_GET['tab'] ?? 'main');
         $search_term  = sanitize_text_field($_POST['search_term']  ?? '');
         $search_field = sanitize_text_field($_POST['search_field'] ?? 'all');
-        $user_data    = $this->email_manager->get_users($search_term, $search_field);
+        
+        // Use paginated method for initial load (100 users)
+        $user_data = $this->email_manager->get_users_paginated(
+            1, // First page
+            100, // 100 users initially
+            $search_term,
+            $search_field,
+            'id',
+            'DESC'
+        );
+        
         include WP_EMAIL_RESTRICTION_PLUGIN_DIR . 'includes/admin/views/admin-page.php';
     }
 
-    /**
-     * Render recently added user info for Settings tab
-     */
-    public function render_added_user_info($user_data, $tab) {
-        if (!$this->recently_added_user) {
-            return;
-        }
-        
-        $user = $this->recently_added_user;
-        ?>
-        <div class="card" style="margin-top: 20px;">
-            <h3><?php _e('Recently Added User', 'wp-email-restriction'); ?></h3>
-            <table class="wp-list-table widefat fixed striped">
-                <thead>
-                    <tr>
-                        <th><?php _e('ID', 'wp-email-restriction'); ?></th>
-                        <th><?php _e('Name', 'wp-email-restriction'); ?></th>
-                        <th><?php _e('Email', 'wp-email-restriction'); ?></th>
-                        <th><?php _e('Created At', 'wp-email-restriction'); ?></th>
-                        <th><?php _e('Actions', 'wp-email-restriction'); ?></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr style="background-color: #f0f8ff;">
-                        <td><?php echo esc_html($user->id); ?></td>
-                        <td><strong><?php echo esc_html($user->name); ?></strong></td>
-                        <td><?php echo esc_html($user->email); ?></td>
-                        <td><?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($user->created_at))); ?></td>
-                        <td>
-                            <button type="button" class="button edit-user"
-                                data-id="<?php echo esc_attr($user->id); ?>"
-                                data-name="<?php echo esc_attr($user->name); ?>"
-                                data-email="<?php echo esc_attr($user->email); ?>"
-                                data-tab="<?php echo esc_attr($tab); ?>">
-                                <?php _e('Edit', 'wp-email-restriction'); ?>
-                            </button>
-                            <a href="<?php echo esc_url(wp_nonce_url(admin_url("admin.php?page=wp-email-restriction&tab={$tab}&action=delete&id={$user->id}"), 'delete_email_' . $user->id)); ?>"
-                               class="button delete-user"
-                               data-id="<?php echo esc_attr($user->id); ?>"
-                               onclick="return confirm('<?php _e('Are you sure you want to delete this user?', 'wp-email-restriction'); ?>')">
-                                <?php _e('Delete', 'wp-email-restriction'); ?>
-                            </a>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-            <p class="description">
-                <span style="color: #46b450;">✓</span> 
-                <?php _e('This user was just added successfully. You can now edit their information or continue adding more users.', 'wp-email-restriction'); ?>
-            </p>
-        </div>
-        <?php
-    }
-    
     public function render_users_table($user_data, $search_term, $search_field, $tab) {
-        $users    = $user_data['users'];
-        $shown    = $user_data['showing'];
-        $total    = $user_data['total'];
+        $users = $user_data['users'];
+        $shown = $user_data['showing'];
+        $total = $user_data['total'];
+        $total_pages = $user_data['total_pages'];
         
+        // Show transient notices
         if ($n = get_transient('mcp_email_notice_delete')) {
             echo "<div class='notice notice-success'><p>" . esc_html($n) . "</p></div>";
             delete_transient('mcp_email_notice_delete');
@@ -387,33 +370,70 @@ class WP_Email_Restriction_Admin {
                     <tbody>
                         <?php foreach ($users as $u) : ?>
                             <tr>
-                                <th class="check-column"><input type="checkbox" name="bulk-delete[]" value="<?php echo esc_attr($u->id); ?>"></th>
+                                <th class="check-column">
+                                    <input type="checkbox" name="bulk-delete[]" value="<?php echo esc_attr($u->id); ?>">
+                                </th>
                                 <td><?php echo esc_html($u->id); ?></td>
-                                <td><?php echo esc_html($u->name); ?></td>
+                                <td><strong><?php echo esc_html($u->name); ?></strong></td>
                                 <td><?php echo esc_html($u->email); ?></td>
                                 <td><?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($u->created_at))); ?></td>
-                                <td>
+                                <td class="actions">
                                     <button type="button" class="button edit-user"
                                         data-id="<?php echo esc_attr($u->id); ?>"
                                         data-name="<?php echo esc_attr($u->name); ?>"
                                         data-email="<?php echo esc_attr($u->email); ?>"
-                                        data-tab="<?php echo esc_attr($tab); ?>">
+                                        data-tab="<?php echo esc_attr($tab); ?>"
+                                        title="Edit user: <?php echo esc_attr($u->name); ?>">
                                         <?php _e('Edit', 'wp-email-restriction'); ?>
                                     </button>
-                                    <a href="<?php echo esc_url(wp_nonce_url(admin_url("admin.php?page=wp-email-restriction&tab={$tab}&action=delete&id={$u->id}"), 'delete_email_' . $u->id)); ?>"
-                                       class="button delete-user"
-                                       data-id="<?php echo esc_attr($u->id); ?>"
-                                       onclick="return confirm('<?php _e('Are you sure you want to delete this user?', 'wp-email-restriction'); ?>')">
+                                    <button type="button" class="button delete-user" 
+                                        data-id="<?php echo esc_attr($u->id); ?>"
+                                        title="Delete user: <?php echo esc_attr($u->name); ?>">
                                         <?php _e('Delete', 'wp-email-restriction'); ?>
-                                    </a>
+                                    </button>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
             </form>
+            
+            <!-- Load More Button -->
+            <?php if ($shown < $total) : ?>
+                <div class="load-more-container" style="text-align: center; margin: 20px 0;">
+                    <button type="button" id="load-more-users" class="button button-primary">
+                        <?php printf(__('Load More Users (%d remaining)', 'wp-email-restriction'), $total - $shown); ?>
+                    </button>
+                </div>
+            <?php endif; ?>
+
+            <!-- Initialize pagination data for JavaScript -->
+            <script>
+            if (typeof window.wpEmailRestrictionPagination === 'undefined') {
+                window.wpEmailRestrictionPagination = {
+                    loadedUsers: <?php echo $shown; ?>,
+                    totalUsers: <?php echo $total; ?>,
+                    currentPage: 1
+                };
+            }
+            </script>
+            
         <?php else : ?>
-            <p><?php _e('No users found.', 'wp-email-restriction'); ?></p>
+            <div class="no-users-found">
+                <p>
+                    <?php if ($search_term) : ?>
+                        <?php _e('No users found matching your search.', 'wp-email-restriction'); ?>
+                        <br><br>
+                        <a href="<?php echo esc_url(admin_url('admin.php?page=wp-email-restriction&tab=main')); ?>" 
+                           class="button"><?php _e('Clear Search', 'wp-email-restriction'); ?></a>
+                    <?php else : ?>
+                        <?php _e('No users found. Start by adding some users!', 'wp-email-restriction'); ?>
+                        <br><br>
+                        <a href="<?php echo esc_url(admin_url('admin.php?page=wp-email-restriction&tab=settings')); ?>" 
+                           class="button button-primary"><?php _e('Add Users', 'wp-email-restriction'); ?></a>
+                    <?php endif; ?>
+                </p>
+            </div>
         <?php endif;
     }
 }
