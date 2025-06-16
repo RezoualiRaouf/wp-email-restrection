@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WP Email Restriction
  * Description: Restrict website access to specific domain email addresses with custom login page.
- * Version: 2.0
+ * Version: 1.2
  * Author: Raouf Rezouali
  * Text Domain: wp-email-restriction
  * Requires at least: 5.0
