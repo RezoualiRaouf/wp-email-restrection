@@ -50,7 +50,7 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
     </a>
     <a href="<?php echo admin_url('admin.php?page=wp-email-restriction&tab=uploads'); ?>"
        class="nav-tab <?php echo $active_tab === 'uploads' ? 'nav-tab-active' : ''; ?>">
-       <?php _e('Bulk Import', 'wp-email-restriction'); ?>
+       <?php _e('Import/Export', 'wp-email-restriction'); ?>
     </a>
     <a href="<?php echo admin_url('admin.php?page=wp-email-restriction&tab=login-settings'); ?>"
        class="nav-tab <?php echo $active_tab === 'login-settings' ? 'nav-tab-active' : ''; ?>">
@@ -117,64 +117,85 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
   <?php endif; ?>
 
   <!-- Settings Tab -->
-  <?php if ($active_tab === 'settings') : ?>
-      <?php endif; ?>
-
-  <!-- Uploads Tab -->
-  <?php if ($active_tab === 'uploads') : ?>
-
-  <div class="card card-half">
-  <h2><?php _e('Export users ');?></h2>
-
-  <p><?php _e("export the user's info in a CSV/JSON format");  ?></p>    
-  
-  <h3> <?php _e('export in CSV');?></h3>
-  <button type="click"></button>
-  </div>
-
-    <div class="card card-half">
-      <h2><?php _e('Bulk Import Users', 'wp-email-restriction'); ?></h2>
-      <p><?php _e('Upload a CSV or JSON file to import multiple users at once.', 'wp-email-restriction'); ?></p>
+<?php if ($active_tab === 'uploads') : ?>
+  <div class="card">
+    <h2><?php _e('Bulk Import Users', 'wp-email-restriction'); ?></h2>
+    <p><?php _e('Upload a CSV or JSON file to import multiple users at once.', 'wp-email-restriction'); ?></p>
+    
+    <!-- 🆕 EXPORT SECTION -->
+    <div class="export-section" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 25px; border: 1px solid #dee2e6;">
+      <h3 style="color: #2271b1; margin-top: 0;">
+        <span class="dashicons dashicons-download" style="vertical-align: middle; margin-right: 8px;"></span>
+        <?php _e('Export Current Users', 'wp-email-restriction'); ?>
+      </h3>
       
-      <h3><?php _e('CSV Format', 'wp-email-restriction'); ?>
-      <p><?php _e('Your CSV file should have the following columns:', 'wp-email-restriction'); ?></p>
-      <code>name,email,password</code>
-      <code>name,email</code>
-      <p class="description"><?php _e('The password column is optional. If not provided, random passwords will be generated.', 'wp-email-restriction'); ?></p>
+      <p style="margin-bottom: 15px; color: #666;">
+        <?php _e('Download all current users as a CSV file for backup or migration purposes.', 'wp-email-restriction'); ?>
+      </p>
       
-      <h3><?php _e('JSON Format', 'wp-email-restriction'); ?></h3>
-      <p><?php _e('Your JSON file should be an array of user objects:', 'wp-email-restriction'); ?></p>
-      <pre><code>[
+      <div style="display: flex; align-items: center; gap: 15px;">
+        <a href="<?php echo wp_nonce_url(
+               admin_url('admin.php?page=wp-email-restriction&action=export_users&tab=uploads'), 
+               'export_users'
+           ); ?>" 
+           class="button button-primary"
+           style="text-decoration: none;">
+            <span class="dashicons dashicons-download" style="vertical-align: middle; margin-right: 5px;"></span>
+            <?php _e('Export as CSV', 'wp-email-restriction'); ?>
+        </a>
+        
+        <span class="description">
+          <?php printf(__('%d users available', 'wp-email-restriction'), $user_data['total']); ?>
+        </span>
+      </div>
+    </div>
+    
+    <?php if (isset($_GET['export_status']) && $_GET['export_status'] === 'no_users') : ?>
+      <div class="notice notice-warning">
+        <p><?php _e('No users found to export.', 'wp-email-restriction'); ?></p>
+      </div>
+    <?php endif; ?>
+    
+    <!-- SEPARATOR -->
+    <hr style="margin: 25px 0; border: none; height: 1px; background: #ddd;">
+    
+    <h3><?php _e('CSV Format', 'wp-email-restriction'); ?></h3>
+    <p><?php _e('Your CSV file should have the following columns:', 'wp-email-restriction'); ?></p>
+    <code>name,email,password</code>
+    <p class="description"><?php _e('The password column is optional. If not provided, random passwords will be generated.', 'wp-email-restriction'); ?></p>
+    
+    <h3><?php _e('JSON Format', 'wp-email-restriction'); ?></h3>
+    <p><?php _e('Your JSON file should be an array of user objects:', 'wp-email-restriction'); ?></p>
+    <pre><code>[
   {"name": "John Doe", "email": "john@univ-bouira.dz", "password": "optional"},
   {"name": "Jane Smith", "email": "jane@univ-bouira.dz"}
 ]</code></pre>
-      
-      <form method="post" enctype="multipart/form-data">
-        <?php wp_nonce_field('file_upload_nonce', 'file_upload_nonce'); ?>
-        <table class="form-table">
-          <tr>
-            <th><label for="uploaded_file"><?php _e('Select File'); ?></label></th>
-            <td>
-              <input type="file" name="uploaded_file" id="uploaded_file" accept=".csv,.json" required>
-              <p class="description"><?php _e('Maximum file size: 2MB. Supported formats: CSV, JSON', 'wp-email-restriction'); ?></p>
-            </td>
-          </tr>
-        </table>
-        <?php submit_button(__('Upload and Import'), 'primary', 'upload_file'); ?>
-      </form>
-      
-      <?php if (isset($_GET['upload_status'])) : ?>
-        <?php if ($_GET['upload_status'] === 'success') : ?>
-          <div class="notice notice-success"><p>
-            <?php printf(__('File uploaded successfully! %d users added.'), intval($_GET['added'] ?? 0)); ?>
-          </p></div>
-        <?php else : ?>
-          <div class="notice notice-error"><p><?php _e('Upload failed. Please check your file format and try again.'); ?></p></div>
-        <?php endif; ?>
+    
+    <form method="post" enctype="multipart/form-data">
+      <?php wp_nonce_field('file_upload_nonce', 'file_upload_nonce'); ?>
+      <table class="form-table">
+        <tr>
+          <th><label for="uploaded_file"><?php _e('Select File'); ?></label></th>
+          <td>
+            <input type="file" name="uploaded_file" id="uploaded_file" accept=".csv,.json" required>
+            <p class="description"><?php _e('Maximum file size: 2MB. Supported formats: CSV, JSON', 'wp-email-restriction'); ?></p>
+          </td>
+        </tr>
+      </table>
+      <?php submit_button(__('Upload and Import'), 'primary', 'upload_file'); ?>
+    </form>
+    
+    <?php if (isset($_GET['upload_status'])) : ?>
+      <?php if ($_GET['upload_status'] === 'success') : ?>
+        <div class="notice notice-success"><p>
+          <?php printf(__('File uploaded successfully! %d users added.'), intval($_GET['added'] ?? 0)); ?>
+        </p></div>
+      <?php else : ?>
+        <div class="notice notice-error"><p><?php _e('Upload failed. Please check your file format and try again.'); ?></p></div>
       <?php endif; ?>
-    </div>
-  <?php endif; ?>
-
+    <?php endif; ?>
+  </div>
+<?php endif; ?>  
   <!-- Login Settings Tab -->
   <?php if ($active_tab === 'login-settings') : ?>
     <div class="card">
@@ -256,19 +277,3 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
           </a>
           
   <?php endif; ?>
-
-  <!-- Password Display Modal -->
-  <div id="password-display-modal" class="modal" style="display: none;">
-    <div class="modal-content">
-      <span class="close-modal">&times;</span>
-      <h2><?php _e('New Password Generated'); ?></h2>
-      <p><?php _e('A new password has been generated for the user:'); ?></p>
-      <div class="password-display">
-        <code id="new-password-display"></code>
-        <button type="button" id="copy-password" class="button"><?php _e('Copy Password'); ?></button>
-      </div>
-      <p class="description"><?php _e('Please save this password and share it with the user. It will not be shown again.'); ?></p>
-    </div>
-  </div>
-
-</div>
