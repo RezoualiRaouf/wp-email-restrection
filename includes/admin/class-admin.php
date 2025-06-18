@@ -1,6 +1,6 @@
 <?php
 /**
- * Simplified Admin functionality
+ *  Admin functionality 
  *
  * @package WP_Email_Restriction
  */
@@ -16,6 +16,7 @@ class WP_Email_Restriction_Admin {
         $this->email_manager = new WP_Email_Restriction_Email_Manager();
         add_action('admin_menu', [$this, 'add_admin_menu']);
         add_action('admin_init', [$this, 'handle_actions']);
+        add_action('admin_init', [$this, 'handle_export']); // Add export handler
         add_action('admin_enqueue_scripts', [$this, 'enqueue_scripts']);
         $this->register_ajax_handlers();
     }
@@ -132,6 +133,155 @@ class WP_Email_Restriction_Admin {
         ) {
             $this->process_file_upload();
         }
+    }
+
+    /**
+     * Handle CSV and JSON export functionality
+     */
+    public function handle_export() {
+        // Check if this is an export request
+        if (
+            isset($_GET['action']) && 
+            in_array($_GET['action'], ['export_users', 'export_users_json']) &&
+            isset($_GET['_wpnonce']) &&
+            wp_verify_nonce($_GET['_wpnonce'], 'export_users') && 
+            current_user_can('manage_options')
+        ) {
+            // Determine export type based on action
+            if ($_GET['action'] === 'export_users_json') {
+                $this->export_users_json();
+            } else {
+                $this->export_users_csv();
+            }
+        }
+    }
+
+    /**
+     * Export users to CSV
+     */
+    private function export_users_csv() {
+        // Get users data
+        $users_data = $this->get_export_data();
+        
+        if (empty($users_data)) {
+            $this->handle_no_users_error();
+            return;
+        }
+        
+        // Generate filename with timestamp
+        $filename = 'email-restriction-users-' . date('Y-m-d-H-i-s') . '.csv';
+        
+        // Set headers for CSV download
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+        
+        // Create file pointer connected to the output stream
+        $output = fopen('php://output', 'w');
+        
+        // Add BOM for proper UTF-8 encoding in Excel
+        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
+        
+        // Add CSV headers
+        fputcsv($output, [
+            'ID',
+            'Name', 
+            'Email',
+            'Created At'
+        ]);
+        
+        // Add user data
+        foreach ($users_data as $user) {
+            fputcsv($output, [
+                $user->id,
+                $user->name,
+                $user->email,
+                $user->created_at
+            ]);
+        }
+        
+        // Close the file pointer
+        fclose($output);
+        exit;
+    }
+
+    /**
+     * Export users to JSON
+     */
+    private function export_users_json() {
+        // Get users data
+        $users_data = $this->get_export_data();
+        
+        if (empty($users_data)) {
+            $this->handle_no_users_error();
+            return;
+        }
+        
+        // Generate filename with timestamp
+        $filename = 'email-restriction-users-' . date('Y-m-d-H-i-s') . '.json';
+        
+        // Set headers for JSON download
+        header('Content-Type: application/json; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+        
+        // Prepare data structure for JSON
+        $export_data = [
+            'export_info' => [
+                'plugin' => 'WP Email Restriction',
+                'version' => defined('WP_EMAIL_RESTRICTION_VERSION') ? WP_EMAIL_RESTRICTION_VERSION : '2.0',
+                'exported_at' => current_time('mysql'),
+                'exported_by' => wp_get_current_user()->user_login,
+                'total_users' => count($users_data),
+                'website' => get_site_url(),
+                'export_format' => 'json',
+                'timezone' => get_option('timezone_string') ?: 'UTC'
+            ],
+            'users' => []
+        ];
+        
+        // Convert user objects to arrays for better JSON structure
+        foreach ($users_data as $user) {
+            $export_data['users'][] = [
+                'id' => (int) $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'created_at' => $user->created_at,
+                // Add formatted date for readability
+                'created_at_formatted' => date_i18n(
+                    get_option('date_format') . ' ' . get_option('time_format'), 
+                    strtotime($user->created_at)
+                ),
+                'created_timestamp' => strtotime($user->created_at)
+            ];
+        }
+        
+        // Output JSON with pretty printing for readability
+        echo json_encode($export_data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
+    }
+
+    /**
+     * Get export data from database (shared method)
+     */
+    private function get_export_data() {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'email_restriction';
+        
+        return $wpdb->get_results(
+            "SELECT id, name, email, created_at FROM $table_name ORDER BY id DESC"
+        );
+    }
+
+    /**
+     * Handle the case when no users are found (shared method)
+     */
+    private function handle_no_users_error() {
+        $redirect_url = admin_url('admin.php?page=wp-email-restriction&tab=uploads&export_status=no_users');
+        wp_redirect($redirect_url);
+        exit;
     }
 
     private function process_file_upload() {
