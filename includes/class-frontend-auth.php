@@ -36,9 +36,6 @@ class WP_Email_Restriction_Frontend_Auth {
         
         // Add login/logout to menu
         add_filter('wp_nav_menu_items', [$this, 'add_login_logout_link'], 10, 2);
-        
-        // Handle export functionality
-        add_action('admin_init', [$this, 'handle_export']);
     }
     
     public function start_session() {
@@ -146,7 +143,7 @@ class WP_Email_Restriction_Frontend_Auth {
         // Remove preview parameter from redirect URL
         $redirect_url = remove_query_arg('restricted_login', $redirect_url);
         
-        // 🆕 Check if this is preview mode
+        // Check if this is preview mode
         $is_preview_mode = $this->is_preview_mode();
         $is_admin = $this->is_admin_user();
         
@@ -165,7 +162,7 @@ class WP_Email_Restriction_Frontend_Auth {
         $redirect_url = esc_url($_POST['redirect_url'] ?? home_url());
         $is_preview = $_POST['is_preview'] ?? false;
         
-        // 🆕 PREVIEW MODE: Allow WordPress admin login
+        // PREVIEW MODE: Allow WordPress admin login
         if ($is_preview && $this->is_admin_user()) {
             $wp_user = wp_get_current_user();
             
@@ -318,45 +315,5 @@ class WP_Email_Restriction_Frontend_Auth {
             'email' => $_SESSION['restricted_user_email'],
             'type' => $_SESSION['restricted_preview_mode'] ? 'preview' : 'restricted'
         ];
-    }
-    
-    public function handle_export() {
-        if (isset($_GET['action']) && $_GET['action'] === 'export_users' && 
-            wp_verify_nonce($_GET['_wpnonce'], 'export_users') && 
-            current_user_can('manage_options')) {
-            
-            global $wpdb;
-            $table_name = $wpdb->prefix . 'email_restriction';
-            $users = $wpdb->get_results("SELECT id, name, email, created_at FROM $table_name ORDER BY id DESC");
-            
-            if (empty($users)) {
-                wp_die('No users found to export.');
-            }
-            
-            $filename = 'email-restriction-users-' . date('Y-m-d-H-i-s') . '.csv';
-            
-            header('Content-Type: text/csv');
-            header('Content-Disposition: attachment; filename="' . $filename . '"');
-            header('Pragma: no-cache');
-            header('Expires: 0');
-            
-            $output = fopen('php://output', 'w');
-            
-            // Add CSV headers
-            fputcsv($output, ['ID', 'Name', 'Email', 'Created At']);
-            
-            // Add user data
-            foreach ($users as $user) {
-                fputcsv($output, [
-                    $user->id,
-                    $user->name,
-                    $user->email,
-                    $user->created_at
-                ]);
-            }
-            
-            fclose($output);
-            exit;
-        }
     }
 }
