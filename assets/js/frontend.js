@@ -1,80 +1,94 @@
 /**
- * Enhanced Frontend JavaScript for WP Email Restriction
- *
  * @package WP_Email_Restriction
  */
-(function ($) {
+(($) => {
   "use strict";
 
-  $(document).ready(function () {
+  $(document).ready(() => {
     initLoginForm();
     initLogoutLink();
     initAnimations();
     initSecurityFeatures();
   });
 
-  function initLoginForm() {
+  const initLoginForm = () => {
     const $form = $("#restricted-login-form");
+    if (!$form.length) return;
+
     const $submitButton = $form.find('button[type="submit"]');
     const $buttonText = $submitButton.find(".button-text");
     const $buttonSpinner = $submitButton.find(".button-spinner");
     const $messageDiv = $("#login-message");
+    const $email = $("#email");
+    const $password = $("#password");
 
-    $form.on("submit", function (e) {
+    const setLoadingState = (loading) => {
+      $submitButton.prop("disabled", loading);
+      $buttonText.toggle(!loading);
+      $buttonSpinner.toggle(loading);
+      $form.toggleClass("loading", loading);
+    };
+
+    const showMessage = (msg, type) => {
+      $messageDiv
+        .removeClass("success error")
+        .addClass(type)
+        .text(msg)
+        .fadeIn()
+        .addClass("show");
+
+      if (type === "error") {
+        setTimeout(hideMessage, 5000);
+      }
+    };
+
+    const hideMessage = () => {
+      $messageDiv.removeClass("show").fadeOut(300);
+    };
+
+    const isValidEmail = (email) =>
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+    $form.on("submit", (e) => {
       e.preventDefault();
-
-      // Clear previous messages
       hideMessage();
 
-      // Get form data
       const formData = {
         action: "restricted_login",
-        email: $("#email").val().trim(),
-        password: $("#password").val(),
-        nonce: $('input[name="nonce"]').val(),
-        redirect_url: $('input[name="redirect_url"]').val(),
-        is_preview: $('input[name="is_preview"]').val(),
+        email: $email.val().trim(),
+        password: $password.val(),
+        nonce: $form.find('[name="nonce"]').val(),
+        redirect_url: $form.find('[name="redirect_url"]').val(),
+        is_preview: $form.find('[name="is_preview"]').val(),
       };
 
-      // Basic validation
       if (!formData.email || !formData.password) {
-        showMessage("Please fill in all fields.", "error");
-        return;
+        return showMessage("Please fill in all fields.", "error");
       }
 
       if (!isValidEmail(formData.email)) {
-        showMessage("Please enter a valid email address.", "error");
-        return;
+        return showMessage("Please enter a valid email address.", "error");
       }
 
-      // Show loading state
       setLoadingState(true);
 
-      // Submit via AJAX
-      $.ajax({
+      $.post({
         url: wpEmailRestrictionFrontend.ajaxurl,
-        type: "POST",
         data: formData,
         dataType: "json",
-        success: function (response) {
+        success: (response) => {
           if (response.success) {
             showMessage(response.data.message, "success");
-
-            // Add delay for better UX
-            const redirectDelay = wpEmailRestrictionFrontend.is_preview
-              ? 1500
-              : 1000;
-
-            // Redirect after successful login
-            setTimeout(function () {
+            const delay = wpEmailRestrictionFrontend.is_preview ? 1500 : 1000;
+            setTimeout(() => {
               window.location.href = response.data.redirect_url;
-            }, redirectDelay);
+            }, delay);
           } else {
             showMessage(response.data.message, "error");
             setLoadingState(false);
           }
         },
-        error: function (xhr, status, error) {
+        error: (xhr, status, error) => {
           console.error("Login error:", error);
           showMessage("An error occurred. Please try again.", "error");
           setLoadingState(false);
@@ -82,61 +96,16 @@
       });
     });
 
-    function setLoadingState(loading) {
-      if (loading) {
-        $submitButton.prop("disabled", true);
-        $buttonText.hide();
-        $buttonSpinner.show();
-        $form.addClass("loading");
-      } else {
-        $submitButton.prop("disabled", false);
-        $buttonText.show();
-        $buttonSpinner.hide();
-        $form.removeClass("loading");
-      }
-    }
-
-    function showMessage(message, type) {
-      $messageDiv
-        .removeClass("success error")
-        .addClass(type)
-        .text(message)
-        .show()
-        .addClass("show");
-
-      // Auto-hide error messages after 5 seconds
-      if (type === "error") {
-        setTimeout(function () {
-          hideMessage();
-        }, 5000);
-      }
-    }
-
-    function hideMessage() {
-      $messageDiv.removeClass("show").fadeOut(300);
-    }
-
-    function isValidEmail(email) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      return emailRegex.test(email);
-    }
-
-    // Auto-focus first input
-    $("#email").focus();
-
-    // Enter key handling
-    $form.find("input").on("keypress", function (e) {
+    $form.find("input").on("keypress", (e) => {
       if (e.which === 13) {
-        // Enter key
         e.preventDefault();
         $form.submit();
       }
     });
 
-    // Real-time email validation
-    $("#email").on("blur", function () {
-      const email = $(this).val().trim();
-      if (email && !isValidEmail(email)) {
+    $email.on("blur", function () {
+      const emailVal = $(this).val().trim();
+      if (emailVal && !isValidEmail(emailVal)) {
         $(this).addClass("error");
         showMessage("Please enter a valid email address.", "error");
       } else {
@@ -145,95 +114,73 @@
       }
     });
 
-    // Clear error styling on input
     $form.find("input").on("input", function () {
       $(this).removeClass("error");
     });
-  }
 
-  function initLogoutLink() {
+    $email.focus();
+  };
+
+  const initLogoutLink = () => {
     $(document).on("click", ".restricted-logout-link", function (e) {
       e.preventDefault();
 
-      if (!confirm("Are you sure you want to logout?")) {
-        return;
-      }
+      if (!confirm("Are you sure you want to logout?")) return;
 
-      $.ajax({
+      $.post({
         url: wpEmailRestrictionFrontend.ajaxurl,
-        type: "POST",
         data: {
           action: "restricted_logout",
           nonce: wpEmailRestrictionFrontend.logout_nonce,
         },
         dataType: "json",
-        success: function (response) {
+        success: (response) => {
           if (response.success) {
-            // Redirect to home page or login page
             window.location.href = window.location.origin;
           }
         },
-        error: function () {
-          // Fallback - just reload the page
+        error: () => {
           window.location.reload();
         },
       });
     });
-  }
+  };
 
-  // Add animations
-  function initAnimations() {
-    // Fade in the form
-    $(".login-form-wrapper")
-      .css({
-        opacity: "0",
-        transform: "translateY(20px)",
-      })
-      .animate(
-        {
-          opacity: "1",
-        },
-        500
-      )
+  const initAnimations = () => {
+    const $wrapper = $(".login-form-wrapper");
+    $wrapper
+      .css({ opacity: "0", transform: "translateY(20px)" })
+      .animate({ opacity: "1" }, 500)
       .css("transform", "translateY(0)");
 
-    // Add focus animations
-    $('input[type="email"], input[type="password"]')
-      .on("focus", function () {
+    $('input[type="email"], input[type="password"]').on({
+      focus: function () {
         $(this).parent().addClass("focused");
-      })
-      .on("blur", function () {
+      },
+      blur: function () {
         if (!$(this).val()) {
           $(this).parent().removeClass("focused");
         }
-      });
-  }
-
-  // Add security features
-  function initSecurityFeatures() {
-    // Disable right-click on login form (optional)
-    $(".login-form").on("contextmenu", function (e) {
-      e.preventDefault();
+      },
     });
+  };
 
-    // Clear password field on page visibility change
-    $(document).on("visibilitychange", function () {
+  const initSecurityFeatures = () => {
+    $(".login-form").on("contextmenu", (e) => e.preventDefault());
+
+    $(document).on("visibilitychange", () => {
       if (document.hidden) {
         $("#password").val("");
       }
     });
 
-    // Add CSRF protection
     const csrfToken = $('meta[name="csrf-token"]').attr("content");
     if (csrfToken) {
       $.ajaxSetup({
-        headers: {
-          "X-CSRF-TOKEN": csrfToken,
-        },
+        headers: { "X-CSRF-TOKEN": csrfToken },
       });
     }
-  }
+  };
 
-  // Initialize after a delay
   setTimeout(initAnimations, 100);
 })(jQuery);
