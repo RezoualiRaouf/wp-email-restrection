@@ -508,14 +508,15 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
       
       <hr>
       
-      <h3><?php _e('Reset Password', 'wp-email-restriction'); ?></h3>
-      <form method="post" action="">
-        <?php wp_nonce_field('reset_password_nonce', 'reset_password_nonce'); ?>
-        <input type="hidden" name="user_id_reset" id="user_id_reset">
-        <p><?php _e('Generate a new random password for this user.'); ?></p>
-        <?php submit_button(__('Reset Password'), 'secondary', 'reset_password'); ?>
-      </form>
-    </div>
+
+<h3><?php _e('Reset Password', 'wp-email-restriction'); ?></h3>
+<form method="post" action="">
+    <?php wp_nonce_field('reset_password_nonce', 'reset_password_nonce'); ?>
+    <input type="hidden" name="user_id_reset" id="user_id_reset">
+    <input type="hidden" name="tab" value="<?php echo esc_attr($active_tab); ?>">
+    <p><?php _e('Generate a new random password for this user.'); ?></p>
+    <?php submit_button(__('Reset Password'), 'secondary', 'reset_password'); ?>
+</form>    </div>
   </div>
 
   <!-- Password Display Modal -->

@@ -121,20 +121,27 @@ class WP_Email_Restriction_Admin {
             );
         }
 
-        // Reset password
-        if (
-            isset($_POST['reset_password'], $_POST['reset_password_nonce']) &&
-            wp_verify_nonce($_POST['reset_password_nonce'], 'reset_password_nonce')
-        ) {
-            $uid = intval($_POST['user_id_reset']);
-            $r   = $this->email_manager->reset_password($uid);
-            if ($r['status'] === 'success') {
-                set_transient('mcp_temp_password_' . get_current_user_id(), $r['new_password'], 60);
-                add_settings_error('mcp_email_messages', 'password_reset', $r['message'], 'success');
-            } else {
-                add_settings_error('mcp_email_messages', 'password_error', $r['message'], 'error');
-            }
-        }
+// Reset password
+if (
+    isset($_POST['reset_password'], $_POST['reset_password_nonce']) &&
+    wp_verify_nonce($_POST['reset_password_nonce'], 'reset_password_nonce')
+) {
+    $uid = intval($_POST['user_id_reset']);
+    $r   = $this->email_manager->reset_password($uid);
+    if ($r['status'] === 'success') {
+        set_transient('mcp_temp_password_' . get_current_user_id(), $r['new_password'], 60);
+        
+        // Get current tab for redirect
+        $tab = sanitize_text_field($_POST['tab'] ?? 'main');
+        
+        // Redirect with password reset parameter
+        $redirect_url = admin_url("admin.php?page=wp-email-restriction&tab={$tab}&password_reset=1");
+        wp_redirect($redirect_url);
+        exit;
+    } else {
+        add_settings_error('mcp_email_messages', 'password_error', $r['message'], 'error');
+    }
+}
 
         // File upload (CSV/JSON)
         if (
