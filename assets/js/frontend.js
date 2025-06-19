@@ -1,17 +1,19 @@
 /**
+ * Enhanced Frontend JavaScript for WP Email Restriction
+ *
  * @package WP_Email_Restriction
  */
-(($) => {
+(function ($) {
   "use strict";
 
-  $(document).ready(() => {
+  $(document).ready(function () {
     initLoginForm();
     initLogoutLink();
     initAnimations();
     initSecurityFeatures();
   });
 
-  const initLoginForm = () => {
+  function initLoginForm() {
     const $form = $("#restricted-login-form");
     if (!$form.length) return;
 
@@ -22,14 +24,14 @@
     const $email = $("#email");
     const $password = $("#password");
 
-    const setLoadingState = (loading) => {
+    function setLoadingState(loading) {
       $submitButton.prop("disabled", loading);
       $buttonText.toggle(!loading);
       $buttonSpinner.toggle(loading);
       $form.toggleClass("loading", loading);
-    };
+    }
 
-    const showMessage = (msg, type) => {
+    function showMessage(msg, type) {
       $messageDiv
         .removeClass("success error")
         .addClass(type)
@@ -40,16 +42,17 @@
       if (type === "error") {
         setTimeout(hideMessage, 5000);
       }
-    };
+    }
 
-    const hideMessage = () => {
+    function hideMessage() {
       $messageDiv.removeClass("show").fadeOut(300);
-    };
+    }
 
-    const isValidEmail = (email) =>
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    function isValidEmail(email) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
 
-    $form.on("submit", (e) => {
+    $form.on("submit", function (e) {
       e.preventDefault();
       hideMessage();
 
@@ -76,11 +79,11 @@
         url: wpEmailRestrictionFrontend.ajaxurl,
         data: formData,
         dataType: "json",
-        success: (response) => {
+        success: function (response) {
           if (response.success) {
             showMessage(response.data.message, "success");
             const delay = wpEmailRestrictionFrontend.is_preview ? 1500 : 1000;
-            setTimeout(() => {
+            setTimeout(function () {
               window.location.href = response.data.redirect_url;
             }, delay);
           } else {
@@ -88,7 +91,7 @@
             setLoadingState(false);
           }
         },
-        error: (xhr, status, error) => {
+        error: function (xhr, status, error) {
           console.error("Login error:", error);
           showMessage("An error occurred. Please try again.", "error");
           setLoadingState(false);
@@ -96,7 +99,7 @@
       });
     });
 
-    $form.find("input").on("keypress", (e) => {
+    $form.find("input").on("keypress", function (e) {
       if (e.which === 13) {
         e.preventDefault();
         $form.submit();
@@ -119,9 +122,9 @@
     });
 
     $email.focus();
-  };
+  }
 
-  const initLogoutLink = () => {
+  function initLogoutLink() {
     $(document).on("click", ".restricted-logout-link", function (e) {
       e.preventDefault();
 
@@ -134,19 +137,19 @@
           nonce: wpEmailRestrictionFrontend.logout_nonce,
         },
         dataType: "json",
-        success: (response) => {
+        success: function (response) {
           if (response.success) {
             window.location.href = window.location.origin;
           }
         },
-        error: () => {
+        error: function () {
           window.location.reload();
         },
       });
     });
-  };
+  }
 
-  const initAnimations = () => {
+  function initAnimations() {
     const $wrapper = $(".login-form-wrapper");
     $wrapper
       .css({ opacity: "0", transform: "translateY(20px)" })
@@ -163,12 +166,14 @@
         }
       },
     });
-  };
+  }
 
-  const initSecurityFeatures = () => {
-    $(".login-form").on("contextmenu", (e) => e.preventDefault());
+  function initSecurityFeatures() {
+    $(".login-form").on("contextmenu", function (e) {
+      e.preventDefault();
+    });
 
-    $(document).on("visibilitychange", () => {
+    $(document).on("visibilitychange", function () {
       if (document.hidden) {
         $("#password").val("");
       }
@@ -180,7 +185,7 @@
         headers: { "X-CSRF-TOKEN": csrfToken },
       });
     }
-  };
+  }
 
   setTimeout(initAnimations, 100);
 })(jQuery);
