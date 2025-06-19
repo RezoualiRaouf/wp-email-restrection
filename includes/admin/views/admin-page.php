@@ -1,6 +1,6 @@
 <?php
 /**
- *  admin page
+ * Admin page with selective enhancements
  *
  * @package WP_Email_Restriction
  */
@@ -60,222 +60,194 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
 
   <!-- Main Tab -->
   <?php if ($active_tab === 'main') : ?>
-    <div class="card_container">
-    <div class="card card_half">
-      <h2><?php _e('Search Users', 'wp-email-restriction'); ?></h2>
-      <form method="post" action="">
-        <?php wp_nonce_field('search_users_nonce', 'search_nonce'); ?>
-        <input type="hidden" name="tab" value="main">
-        <div class="search-box">
-          <input type="text" name="search_term" class="regular-text"
-                 placeholder="<?php esc_attr_e('Search users...', 'wp-email-restriction'); ?>"
-                 value="<?php echo esc_attr($search_term); ?>">
-          <select name="search_field">
-            <option value="all" <?php selected($search_field, 'all'); ?>><?php _e('All Fields'); ?></option>
-            <option value="name" <?php selected($search_field, 'name'); ?>><?php _e('Name'); ?></option>
-            <option value="email" <?php selected($search_field, 'email'); ?>><?php _e('Email'); ?></option>
-          </select>
-          <?php submit_button(__('Search'), 'secondary', 'search_users', false); ?>
-          <?php if ($search_term) : ?>
-            <a href="<?php echo esc_url(admin_url('admin.php?page=wp-email-restriction&tab=main')); ?>"
-               class="button"><?php _e('Reset'); ?></a>
-          <?php endif; ?>
+    <div class="users-tab">
+      <div class="card_container">
+        <div class="card card_half">
+          <h2><?php _e('Search Users', 'wp-email-restriction'); ?></h2>
+          <form method="post" action="">
+            <?php wp_nonce_field('search_users_nonce', 'search_nonce'); ?>
+            <input type="hidden" name="tab" value="main">
+            <div class="search-box">
+              <input type="text" name="search_term" class="regular-text"
+                     placeholder="<?php esc_attr_e('Search users...', 'wp-email-restriction'); ?>"
+                     value="<?php echo esc_attr($search_term); ?>">
+              <select name="search_field">
+                <option value="all" <?php selected($search_field, 'all'); ?>><?php _e('All Fields'); ?></option>
+                <option value="name" <?php selected($search_field, 'name'); ?>><?php _e('Name'); ?></option>
+                <option value="email" <?php selected($search_field, 'email'); ?>><?php _e('Email'); ?></option>
+              </select>
+              <?php submit_button(__('Search'), 'secondary', 'search_users', false); ?>
+              <?php if ($search_term) : ?>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=wp-email-restriction&tab=main')); ?>"
+                   class="button"><?php _e('Reset'); ?></a>
+              <?php endif; ?>
+            </div>
+          </form>
         </div>
-      </form>
+        <div class="card card_half">
+          <h2><?php _e('Add New User', 'wp-email-restriction'); ?></h2>
+          <form method="post" action="">
+            <?php wp_nonce_field('add_user_nonce', 'user_nonce'); ?>
+            <input type="hidden" name="tab" value="settings">
+            <table class="form-table">
+              <tr>
+                <th><label for="name"><?php _e('Full Name'); ?></label></th>
+                <td><input type="text" name="name" id="name" class="regular-text" required></td>
+              </tr>
+              <tr>
+                <th><label for="email"><?php _e('Email Address'); ?></label></th>
+                <td>
+                  <input type="email" name="email" id="email" class="regular-text" required>
+                  <p class="description"><?php _e('Only @univ-bouira.dz addresses are allowed.', 'wp-email-restriction'); ?></p>
+                </td>
+              </tr>
+              <tr>
+                <th><label for="password"><?php _e('Password'); ?></label></th>
+                <td>
+                  <input type="password" name="password" id="password" class="regular-text">
+                  <p class="description"><?php _e('Leave blank to generate a random password.', 'wp-email-restriction'); ?></p>
+                </td>
+              </tr>
+            </table>
+            <?php submit_button(__('Add User'), 'primary', 'add_user'); ?>
+          </form>
+        </div>
+      </div>
+      <h2><?php _e('Registered Users', 'wp-email-restriction'); ?></h2>
+      <?php $this->render_users_table($user_data, $search_term, $search_field, 'main'); ?>
     </div>
-    <div class="card card_half">
-      <h2><?php _e('Add New User', 'wp-email-restriction'); ?></h2>
-      <form method="post" action="">
-        <?php wp_nonce_field('add_user_nonce', 'user_nonce'); ?>
-        <input type="hidden" name="tab" value="settings">
-        <table class="form-table">
-          <tr>
-            <th><label for="name"><?php _e('Full Name'); ?></label></th>
-            <td><input type="text" name="name" id="name" class="regular-text" required></td>
-          </tr>
-          <tr>
-            <th><label for="email"><?php _e('Email Address'); ?></label></th>
-            <td>
-              <input type="email" name="email" id="email" class="regular-text" required>
-              <p class="description"><?php _e('Only @univ-bouira.dz addresses are allowed.', 'wp-email-restriction'); ?></p>
-            </td>
-          </tr>
-          <tr>
-            <th><label for="password"><?php _e('Password'); ?></label></th>
-            <td>
-              <input type="password" name="password" id="password" class="regular-text">
-              <p class="description"><?php _e('Leave blank to generate a random password.', 'wp-email-restriction'); ?></p>
-            </td>
-          </tr>
-        </table>
-        <?php submit_button(__('Add User'), 'primary', 'add_user'); ?>
-      </form>
-    </div>
-</div>
-    <h2><?php _e('Registered Users', 'wp-email-restriction'); ?></h2>
-    <?php $this->render_users_table($user_data, $search_term, $search_field, 'main'); ?>
   <?php endif; ?>
 
   <!-- Import/Export Tab -->
   <?php if ($active_tab === 'uploads') : ?>
-    <div class="card">
-      <h2><?php _e('Bulk Import Users', 'wp-email-restriction'); ?></h2>
-      <p><?php _e('Upload a CSV or JSON file to import multiple users at once.', 'wp-email-restriction'); ?></p>
-      
-      <!-- 🆕 ENHANCED EXPORT SECTION with both CSV and JSON -->
-      <div class="export-section" style="background: #f8f9fa; padding: 25px; border-radius: 8px; margin-bottom: 25px; border: 1px solid #dee2e6;">
-        <h3 style="color: #2271b1; margin-top: 0; display: flex; align-items: center;">
-          <span class="dashicons dashicons-download" style="margin-right: 8px;"></span>
-          <?php _e('Export Current Users', 'wp-email-restriction'); ?>
-        </h3>
-        
-        <p style="margin-bottom: 20px; color: #666; line-height: 1.6;">
-          <?php _e('Download all current users for backup or migration purposes. Choose your preferred format:', 'wp-email-restriction'); ?>
-        </p>
-        
-        <!-- Export Options Container -->
-        <div class="export-options" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+    <div class="uploads-tab">
+      <div class="card_container">
+        <!-- Import Card -->
+        <div class="card card_half">
+          <h2>
+            <span class="dashicons dashicons-upload" style="margin-right: 8px; color: #00a32a;"></span>
+            <?php _e('Import Users', 'wp-email-restriction'); ?>
+          </h2>
+          <p><?php _e('Upload a CSV or JSON file to import multiple users at once.', 'wp-email-restriction'); ?></p>
           
-          <!-- CSV Export Option -->
-          <div class="export-option csv-export" style="background: white; padding: 20px; border-radius: 6px; border: 2px solid #e0e0e0; transition: all 0.3s ease;">
-            <div style="display: flex; align-items: center; margin-bottom: 15px;">
-              <span class="dashicons dashicons-media-spreadsheet" style="font-size: 24px; color: #0f9b44; margin-right: 10px;"></span>
-              <h4 style="margin: 0; color: #333; font-size: 16px;">CSV Format</h4>
-            </div>
-            
-            <p style="margin: 0 0 15px; color: #666; font-size: 14px; line-height: 1.5;">
-              Perfect for Excel, Google Sheets, and other spreadsheet applications. Easy to view and edit.
-            </p>
-            
-            <a href="<?php echo wp_nonce_url(
-                   admin_url('admin.php?page=wp-email-restriction&action=export_users&tab=uploads'), 
-                   'export_users'
-               ); ?>" 
-               class="button button-primary" 
-               style="width: 100%; text-align: center; text-decoration: none; justify-content: center; display: flex; align-items: center;">
-                <span class="dashicons dashicons-download" style="margin-right: 5px;"></span>
-                <?php _e('Export as CSV', 'wp-email-restriction'); ?>
-            </a>
-            
-            <small style="display: block; margin-top: 8px; color: #999; text-align: center;">
-              <?php _e('Compatible with Excel', 'wp-email-restriction'); ?>
-            </small>
-          </div>
+          <h4><?php _e('CSV Format', 'wp-email-restriction'); ?></h4>
+          <p><?php _e('Your CSV file should have the following columns:', 'wp-email-restriction'); ?></p>
+          <code>name,email,password</code>
+          <p class="description"><?php _e('The password column is optional. If not provided, random passwords will be generated.', 'wp-email-restriction'); ?></p>
           
-          <!-- JSON Export Option -->
-          <div class="export-option json-export" style="background: white; padding: 20px; border-radius: 6px; border: 2px solid #e0e0e0; transition: all 0.3s ease;">
-            <div style="display: flex; align-items: center; margin-bottom: 15px;">
-              <span class="dashicons dashicons-media-code" style="font-size: 24px; color: #f39c12; margin-right: 10px;"></span>
-              <h4 style="margin: 0; color: #333; font-size: 16px;">JSON Format</h4>
-            </div>
-            
-            <p style="margin: 0 0 15px; color: #666; font-size: 14px; line-height: 1.5;">
-              Structured data format perfect for developers and API integrations. Includes metadata.
-            </p>
-            
-            <a href="<?php echo wp_nonce_url(
-                   admin_url('admin.php?page=wp-email-restriction&action=export_users_json&tab=uploads'), 
-                   'export_users'
-               ); ?>" 
-               class="button button-secondary" 
-               style="width: 100%; text-align: center; text-decoration: none; justify-content: center; display: flex; align-items: center;">
-                <span class="dashicons dashicons-download" style="margin-right: 5px;"></span>
-                <?php _e('Export as JSON', 'wp-email-restriction'); ?>
-            </a>
-            
-            <small style="display: block; margin-top: 8px; color: #999; text-align: center;">
-              <?php _e('Developer friendly', 'wp-email-restriction'); ?>
-            </small>
-          </div>
+          <h4><?php _e('JSON Format', 'wp-email-restriction'); ?></h4>
+          <p><?php _e('Your JSON file should be an array of user objects:', 'wp-email-restriction'); ?></p>
+          <pre><code>[
+      {"name": "John Doe", "email": "john@univ-bouira.dz", "password": "optional"},
+      {"name": "Jane Smith", "email": "jane@univ-bouira.dz"}
+    ]</code></pre>
+          
+          <form method="post" enctype="multipart/form-data">
+            <?php wp_nonce_field('file_upload_nonce', 'file_upload_nonce'); ?>
+            <table class="form-table">
+              <tr>
+                <th><label for="uploaded_file"><?php _e('Select File'); ?></label></th>
+                <td>
+                  <input type="file" name="uploaded_file" id="uploaded_file" accept=".csv,.json" required>
+                  <p class="description"><?php _e('Maximum file size: 2MB. Supported formats: CSV, JSON', 'wp-email-restriction'); ?></p>
+                </td>
+              </tr>
+            </table>
+          <p class="submit">
+  <button type="submit" name="upload_file" class="button button-primary">
+    <span class="dashicons dashicons-upload" style="margin-right: 5px;"></span>
+    <?php _e('Upload and Import', 'wp-email-restriction'); ?>
+  </button>
+</p>
+          </form>
+          
+          <?php if (isset($_GET['upload_status'])) : ?>
+            <?php if ($_GET['upload_status'] === 'success') : ?>
+              <div class="notice notice-success"><p>
+                <?php printf(__('File uploaded successfully! %d users added.'), intval($_GET['added'] ?? 0)); ?>
+              </p></div>
+            <?php else : ?>
+              <div class="notice notice-error"><p><?php _e('Upload failed. Please check your file format and try again.'); ?></p></div>
+            <?php endif; ?>
+          <?php endif; ?>
         </div>
         
-        <!-- Summary Info -->
-        <div style="display: flex; justify-content: center; align-items: center; gap: 20px; padding: 15px; background: rgba(34, 113, 177, 0.1); border-radius: 4px;">
-          <span class="description" style="margin: 0; font-weight: 500;">
-            <?php printf(__('%d users available for export', 'wp-email-restriction'), $user_data['total']); ?>
-          </span>
+        <!-- Export Card -->
+        <div class="card card_half">
+          <h2>
+            <span class="dashicons dashicons-download" style="margin-right: 8px; color: #0073aa;"></span>
+            <?php _e('Export Users', 'wp-email-restriction'); ?>
+          </h2>
+          <p><?php _e('Download all current users for backup or migration purposes. Choose your preferred format:', 'wp-email-restriction'); ?></p>
           
-          <span style="color: #2271b1; font-size: 12px;">
-            <?php printf(__('Last updated: %s', 'wp-email-restriction'), date_i18n(get_option('date_format') . ' ' . get_option('time_format'))); ?>
-          </span>
+          <!-- Export Options Container -->
+          <div class="export-options">
+            
+            <!-- CSV Export Option -->
+            <div class="export-option csv-export">
+              <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                <span class="dashicons dashicons-media-spreadsheet" style="font-size: 24px; color: #0f9b44; margin-right: 10px;"></span>
+                <h4>CSV Format</h4>
+              </div>
+              
+              <p>Perfect for Excel, Google Sheets, and other spreadsheet applications. Easy to view and edit.</p>
+              
+              <a href="<?php echo wp_nonce_url(
+                     admin_url('admin.php?page=wp-email-restriction&action=export_users&tab=uploads'), 
+                     'export_users'
+                 ); ?>" 
+                 class="button button-primary" 
+                 style="width: 100%; text-align: center; text-decoration: none; justify-content: center; display: flex; align-items: center;">
+                  <span class="dashicons dashicons-download" style="margin-right: 5px;"></span>
+                  <?php _e('Export as CSV', 'wp-email-restriction'); ?>
+              </a>
+              
+              <small><?php _e('Compatible with Excel', 'wp-email-restriction'); ?></small>
+            </div>
+            
+            <!-- JSON Export Option -->
+            <div class="export-option json-export">
+              <div style="display: flex; align-items: center; margin-bottom: 15px;">
+                <span class="dashicons dashicons-media-code" style="font-size: 24px; color: #f39c12; margin-right: 10px;"></span>
+                <h4>JSON Format</h4>
+              </div>
+              
+              <p>Structured data format perfect for developers and API integrations. Includes metadata.</p>
+              
+              <a href="<?php echo wp_nonce_url(
+                     admin_url('admin.php?page=wp-email-restriction&action=export_users_json&tab=uploads'), 
+                     'export_users'
+                 ); ?>" 
+                 class="button button-secondary" 
+                 style="width: 100%; text-align: center; text-decoration: none; justify-content: center; display: flex; align-items: center;">
+                  <span class="dashicons dashicons-download" style="margin-right: 5px;"></span>
+                  <?php _e('Export as JSON', 'wp-email-restriction'); ?>
+              </a>
+              
+              <small><?php _e('Developer friendly', 'wp-email-restriction'); ?></small>
+            </div>
+          </div>
+          
+          <!-- Summary Info -->
+          <div style="display: flex; justify-content: center; align-items: center; gap: 20px; padding: 15px; background: rgba(34, 113, 177, 0.1); border-radius: 4px;">
+            <span class="description" style="margin: 0; font-weight: 500;">
+              <?php printf(__('%d users available for export', 'wp-email-restriction'), $user_data['total']); ?>
+            </span>
+            
+            <span style="color: #2271b1; font-size: 12px;">
+              <?php printf(__('Last updated: %s', 'wp-email-restriction'), date_i18n(get_option('date_format') . ' ' . get_option('time_format'))); ?>
+            </span>
+          </div>
+          
+          <!-- Error/Success Messages -->
+          <?php if (isset($_GET['export_status']) && $_GET['export_status'] === 'no_users') : ?>
+            <div class="notice notice-warning" style="margin-top: 15px;">
+              <p><?php _e('No users found to export.', 'wp-email-restriction'); ?></p>
+            </div>
+          <?php endif; ?>
         </div>
       </div>
-      
-      <!-- Error/Success Messages -->
-      <?php if (isset($_GET['export_status']) && $_GET['export_status'] === 'no_users') : ?>
-        <div class="notice notice-warning">
-          <p><?php _e('No users found to export.', 'wp-email-restriction'); ?></p>
-        </div>
-      <?php endif; ?>
-      
-      <!-- SEPARATOR -->
-      <hr style="margin: 30px 0; border: none; height: 1px; background: #ddd;">
-      
-      <!-- Import Section -->
-      <h3><?php _e('Import Users', 'wp-email-restriction'); ?></h3>
-      
-      <h4><?php _e('CSV Format', 'wp-email-restriction'); ?></h4>
-      <p><?php _e('Your CSV file should have the following columns:', 'wp-email-restriction'); ?></p>
-      <code>name,email,password</code>
-      <p class="description"><?php _e('The password column is optional. If not provided, random passwords will be generated.', 'wp-email-restriction'); ?></p>
-      
-      <h4><?php _e('JSON Format', 'wp-email-restriction'); ?></h4>
-      <p><?php _e('Your JSON file should be an array of user objects:', 'wp-email-restriction'); ?></p>
-      <pre><code>[
-    {"name": "John Doe", "email": "john@univ-bouira.dz", "password": "optional"},
-    {"name": "Jane Smith", "email": "jane@univ-bouira.dz"}
-  ]</code></pre>
-      
-      <form method="post" enctype="multipart/form-data">
-        <?php wp_nonce_field('file_upload_nonce', 'file_upload_nonce'); ?>
-        <table class="form-table">
-          <tr>
-            <th><label for="uploaded_file"><?php _e('Select File'); ?></label></th>
-            <td>
-              <input type="file" name="uploaded_file" id="uploaded_file" accept=".csv,.json" required>
-              <p class="description"><?php _e('Maximum file size: 2MB. Supported formats: CSV, JSON', 'wp-email-restriction'); ?></p>
-            </td>
-          </tr>
-        </table>
-        <?php submit_button(__('Upload and Import'), 'primary', 'upload_file'); ?>
-      </form>
-      
-      <?php if (isset($_GET['upload_status'])) : ?>
-        <?php if ($_GET['upload_status'] === 'success') : ?>
-          <div class="notice notice-success"><p>
-            <?php printf(__('File uploaded successfully! %d users added.'), intval($_GET['added'] ?? 0)); ?>
-          </p></div>
-        <?php else : ?>
-          <div class="notice notice-error"><p><?php _e('Upload failed. Please check your file format and try again.'); ?></p></div>
-        <?php endif; ?>
-      <?php endif; ?>
     </div>
-    
-    <!-- Add some CSS for hover effects -->
-    <style>
-      .export-option:hover {
-        border-color: #2271b1 !important;
-        box-shadow: 0 2px 8px rgba(34, 113, 177, 0.15) !important;
-        transform: translateY(-2px);
-      }
-      
-      .csv-export:hover {
-        border-color: #0f9b44 !important;
-        box-shadow: 0 2px 8px rgba(15, 155, 68, 0.15) !important;
-      }
-      
-      .json-export:hover {
-        border-color: #f39c12 !important;
-        box-shadow: 0 2px 8px rgba(243, 156, 18, 0.15) !important;
-      }
-      
-      @media (max-width: 768px) {
-        .export-options {
-          grid-template-columns: 1fr !important;
-        }
-      }
-    </style>
-    
   <?php endif; ?>
 
   <!-- Settings Tab -->
