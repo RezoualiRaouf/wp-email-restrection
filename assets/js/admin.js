@@ -1,5 +1,7 @@
 /**
- * Simple Admin JavaScript - Working Edit & Delete with Load More Pagination
+ * Enhanced Admin JavaScript with Domain Validation
+ *
+ * @package WP_Email_Restriction
  */
 (function ($) {
   "use strict";
@@ -9,8 +11,12 @@
   let totalUsers = 0;
   let loadedUsers = 0;
   let loading = false;
-  const initialLoad = 100; // First load
-  const loadMoreSize = 50; // Subsequent loads
+  const initialLoad = 100;
+  const loadMoreSize = 50;
+
+  // Domain validation variables
+  let domainValidationTimeout;
+  let lastValidatedDomain = "";
 
   $(document).ready(function () {
     initModals();
@@ -18,36 +24,218 @@
     initBulkActions();
     initLoadMore();
     initializePaginationCounters();
-
-    // Force re-initialize for initially loaded table
+    initDomainValidation();
+    initDomainExamples();
     initTableButtons();
 
-    // Show password if reset
-    if (wpEmailRestriction.tempPassword) {
-      $("#new-password-display").text(wpEmailRestriction.tempPassword);
-      $("#password-display-modal").show();
+    // Show password only if there's actually a temp password and we're on the right page
+    if (
+      wpEmailRestriction.tempPassword &&
+      wpEmailRestriction.tempPassword.length > 0
+    ) {
+      // Check if we're on a password reset result page
+      const urlParams = new URLSearchParams(window.location.search);
+      if (
+        urlParams.get("password_reset") === "1" ||
+        document.referrer.includes("reset_password")
+      ) {
+        $("#new-password-display").text(wpEmailRestriction.tempPassword);
+        $("#password-display-modal").show();
+      }
     }
+
+    // Check if domain is configured and show appropriate UI
+    updateUIBasedOnDomainStatus();
   });
+
+  /**
+   * Initialize domain validation functionality
+   */
+  function initDomainValidation() {
+    const $domainInput = $("#allowed_domain");
+    const $domainGroup = $(".domain-input-group");
+    const $validationMessage = $(".domain-validation-message");
+    const $liveValidation = $(".domain-field-live-validation");
+
+    if ($domainInput.length === 0) return;
+
+    // Real-time validation as user types
+    $domainInput.on("input", function () {
+      const domain = $(this).val().trim();
+
+      // Clear previous timeout
+      clearTimeout(domainValidationTimeout);
+
+      // Reset UI state
+      $domainGroup.removeClass("loading error success");
+      $validationMessage.removeClass("error success").hide();
+      $liveValidation.removeClass("valid invalid");
+
+      if (domain === "") {
+        return;
+      }
+
+      // Show loading state
+      $domainGroup.addClass("loading");
+
+      // Debounce validation
+      domainValidationTimeout = setTimeout(function () {
+        validateDomainAjax(domain);
+      }, 500);
+    });
+
+    // Handle form submission
+    $domainInput.closest("form").on("submit", function (e) {
+      const domain = $domainInput.val().trim();
+
+      if (domain === "") {
+        e.preventDefault();
+        showDomainValidationError("Please enter a domain.");
+        return false;
+      }
+
+      // If domain hasn't been validated yet, validate now
+      if (domain !== lastValidatedDomain) {
+        e.preventDefault();
+        $domainGroup.addClass("loading");
+
+        validateDomainAjax(domain, function (isValid) {
+          if (isValid) {
+            // Resubmit form if validation passes
+            $domainInput.closest("form").off("submit").submit();
+          }
+        });
+        return false;
+      }
+    });
+  }
+
+  /**
+   * Validate domain via AJAX
+   */
+  function validateDomainAjax(domain, callback = null) {
+    const $domainGroup = $(".domain-input-group");
+    const $liveValidation = $(".domain-field-live-validation");
+
+    $.ajax({
+      url: ajaxurl,
+      type: "POST",
+      data: {
+        action: "validate_domain",
+        domain: domain,
+        security: wpEmailRestriction.nonce,
+      },
+      success: function (response) {
+        $domainGroup.removeClass("loading");
+        lastValidatedDomain = domain;
+
+        if (response.valid) {
+          showDomainValidationSuccess(response.message);
+          $liveValidation.addClass("valid").text("✓");
+          if (callback) callback(true);
+        } else {
+          showDomainValidationError(response.message);
+          $liveValidation.addClass("invalid").text("✗");
+          if (callback) callback(false);
+        }
+      },
+      error: function () {
+        $domainGroup.removeClass("loading");
+        showDomainValidationError(
+          "Unable to validate domain. Please check your input."
+        );
+        $liveValidation.addClass("invalid").text("✗");
+        if (callback) callback(false);
+      },
+    });
+  }
+
+  /**
+   * Show domain validation success
+   */
+  function showDomainValidationSuccess(message) {
+    const $domainGroup = $(".domain-input-group");
+    const $validationMessage = $(".domain-validation-message");
+
+    $domainGroup.removeClass("error loading").addClass("success");
+    $validationMessage
+      .removeClass("error")
+      .addClass("success")
+      .text(message)
+      .show();
+  }
+
+  /**
+   * Show domain validation error
+   */
+  function showDomainValidationError(message) {
+    const $domainGroup = $(".domain-input-group");
+    const $validationMessage = $(".domain-validation-message");
+
+    $domainGroup.removeClass("success loading").addClass("error");
+    $validationMessage
+      .removeClass("success")
+      .addClass("error")
+      .text(message)
+      .show();
+  }
+
+  /**
+   * Initialize domain examples functionality
+   */
+  function initDomainExamples() {
+    $(document).on("click", ".domain-example", function () {
+      const domain = $(this).text().trim();
+      const $domainInput = $("#allowed_domain");
+
+      if ($domainInput.length) {
+        $domainInput.val(domain).trigger("input").focus();
+
+        // Add visual feedback
+        $(this).css("background", "#0073aa").css("color", "white");
+        setTimeout(() => {
+          $(this).css("background", "").css("color", "");
+        }, 300);
+      }
+    });
+  }
+
+  /**
+   * Update UI based on domain configuration status
+   */
+  function updateUIBasedOnDomainStatus() {
+    const isDomainConfigured = wpEmailRestriction.domainConfigured;
+
+    if (!isDomainConfigured) {
+      // Disable certain tabs and show setup notices
+      $(".nav-tab.tab-disabled").on("click", function (e) {
+        e.preventDefault();
+        showNotice(
+          "Please configure your domain first in the Settings tab.",
+          "warning"
+        );
+        // Highlight settings tab
+        $('.nav-tab[href*="tab=settings"]').addClass("pulse-highlight");
+        setTimeout(() => {
+          $('.nav-tab[href*="tab=settings"]').removeClass("pulse-highlight");
+        }, 2000);
+      });
+    }
+  }
 
   // Initialize pagination counters based on loaded table
   function initializePaginationCounters() {
-    // Use data passed from PHP if available
     if (window.wpEmailRestrictionPagination) {
       loadedUsers = window.wpEmailRestrictionPagination.loadedUsers;
       totalUsers = window.wpEmailRestrictionPagination.totalUsers;
       currentPage = window.wpEmailRestrictionPagination.currentPage;
     } else {
-      // Fallback: Count currently loaded users
       loadedUsers = $(".wp-list-table tbody tr").length;
-
-      // Extract total from display text
       const displayText = $(".displaying-num").text();
       const match = displayText.match(/of (\d+) users/);
       if (match) {
         totalUsers = parseInt(match[1]);
       }
-
-      // Set current page (we start with page 1 loaded)
       currentPage = 1;
     }
   }
@@ -56,8 +244,10 @@
   function initLoadMore() {
     $(document).on("click", "#load-more-users", function (e) {
       e.preventDefault();
-      if (!loading) {
+      if (!loading && wpEmailRestriction.domainConfigured) {
         loadMoreUsers();
+      } else if (!wpEmailRestriction.domainConfigured) {
+        showNotice("Please configure your domain first.", "error");
       }
     });
   }
@@ -72,14 +262,13 @@
     const $button = $("#load-more-users");
     const originalText = $button.text();
 
-    // Update button state
     $button.prop("disabled", true).text("Loading...");
 
     $.ajax({
       url: ajaxurl,
       type: "POST",
       data: {
-        action: "get_restricted_users_paginated", // Make sure this matches the PHP action
+        action: "get_restricted_users_paginated",
         security: wpEmailRestriction.nonce,
         page: currentPage,
         per_page: loadMoreSize,
@@ -93,20 +282,12 @@
           response.data.users &&
           response.data.users.length > 0
         ) {
-          // Append new users to table
           appendUsersToTable(response.data.users);
-
-          // Update counters
           loadedUsers += response.data.users.length;
           totalUsers = response.data.total;
-
-          // Update display counter
           updateUserCount();
-
-          // Re-initialize buttons for new rows
           initTableButtons();
 
-          // Update button text or hide it
           const remaining = totalUsers - loadedUsers;
           if (remaining > 0) {
             $button
@@ -116,7 +297,6 @@
             $button.hide();
           }
         } else {
-          // No more users or error - hide button
           $button.hide();
           if (response.data && response.data.message) {
             showNotice(response.data.message, "info");
@@ -197,31 +377,25 @@
     return searchField.length ? searchField.val() || "all" : "all";
   }
 
-  // Initialize table buttons - Force attach events to existing elements
+  // Initialize table buttons
   function initTableButtons() {
-    // Ensure event handlers are attached (remove first to avoid duplicates)
     $(document).off("click.table-buttons");
-
-    // Re-attach with namespace to avoid conflicts
     $(document).on("click.table-buttons", ".edit-user", handleEditClick);
     $(document).on("click.table-buttons", ".delete-user", handleDeleteClick);
   }
 
   // Initialize modals
   function initModals() {
-    // Close modal on X click
     $(document).on("click", ".close-modal", function () {
       $(this).closest(".modal").hide();
     });
 
-    // Close modal on click outside
     $(window).on("click", function (event) {
       if ($(event.target).hasClass("modal")) {
         $(".modal").hide();
       }
     });
 
-    // Copy password button
     $(document).on("click", "#copy-password", function () {
       const password = $("#new-password-display").text();
       if (navigator.clipboard) {
@@ -232,7 +406,6 @@
           }, 2000);
         });
       } else {
-        // Fallback for older browsers
         const tempInput = $("<input>");
         $("body").append(tempInput);
         tempInput.val(password).select();
@@ -246,7 +419,7 @@
     });
   }
 
-  // Handle edit button clicks - Separate function for reliable attachment
+  // Handle edit button clicks
   function handleEditClick(e) {
     e.preventDefault();
 
@@ -256,13 +429,11 @@
     const email = $button.data("email");
     const tab = $button.data("tab") || getCurrentTab();
 
-    // Validate data
     if (!id || !name || !email) {
       alert("Error: Missing user data for user ID: " + id);
       return;
     }
 
-    // Populate modal fields
     $("#user_id").val(id);
     $("#user_id_reset").val(id);
     $("#name_edit").val(name);
@@ -270,11 +441,10 @@
     $("#password_edit").val("");
     $("#edit_form_tab").val(tab);
 
-    // Show the modal
     $("#edit-user-modal").show();
   }
 
-  // Handle delete button clicks - Separate function for reliable attachment
+  // Handle delete button clicks
   function handleDeleteClick(e) {
     e.preventDefault();
 
@@ -296,30 +466,25 @@
     }
   }
 
-  // Initialize edit user modal - SIMPLIFIED
+  // Initialize edit user modal
   function initEditUserModal() {
-    // Modal is initialized via initTableButtons() function
-    // Hide modal on page load
     $("#edit-user-modal").hide();
     $("#password-display-modal").hide();
   }
 
   // Initialize bulk actions
   function initBulkActions() {
-    // Bulk select all checkbox
     $(document).on(
       "change",
       ".check-column input[type='checkbox']",
       function () {
         const isChecked = $(this).prop("checked");
         if ($(this).closest("thead").length > 0) {
-          // This is the "select all" checkbox in the header
           $("input[name='bulk-delete[]']").prop("checked", isChecked);
         }
       }
     );
 
-    // Handle bulk delete submit
     $(document).on("click", "#doaction", function (e) {
       const action = $("#bulk-action-selector-top").val();
 
@@ -344,11 +509,9 @@
         }
       }
     });
-
-    // Note: Individual delete handled in initTableButtons()
   }
 
-  // Delete a single user - SIMPLIFIED
+  // Delete a single user
   function deleteUser(id, rowElement) {
     $.ajax({
       url: ajaxurl,
@@ -369,7 +532,6 @@
         if (response.success) {
           rowElement.fadeOut(300, function () {
             $(this).remove();
-            // Update counters
             loadedUsers--;
             totalUsers--;
             updateUserCount();
@@ -395,7 +557,7 @@
     });
   }
 
-  // Bulk delete users - SIMPLIFIED
+  // Bulk delete users
   function bulkDeleteUsers(ids) {
     $.ajax({
       url: ajaxurl,
@@ -416,7 +578,6 @@
         if (response.success) {
           showNotice(response.data.message, "success");
 
-          // Remove deleted rows and update counters
           let deletedCount = 0;
           ids.forEach(function (id) {
             $(`input[name='bulk-delete[]'][value='${id}']`)
@@ -425,7 +586,6 @@
                 $(this).remove();
                 deletedCount++;
                 if (deletedCount === ids.length) {
-                  // Update counters after all rows are removed
                   loadedUsers -= ids.length;
                   totalUsers -= ids.length;
                   updateUserCount();
@@ -444,13 +604,12 @@
     });
   }
 
-  // Show notice message - SIMPLIFIED
+  // Show notice message
   function showNotice(message, type) {
-    // Remove existing notices
     $(".notice.temp-notice").remove();
 
     const notice = $(`
-      <div class="notice notice-${type} is-dismissible temp-notice">
+      <div class="notice notice-${type} is-dismissible temp-notice domain-notice">
         <p>${message}</p>
         <button type="button" class="notice-dismiss">
           <span class="screen-reader-text">Dismiss this notice.</span>
@@ -458,17 +617,14 @@
       </div>
     `);
 
-    // Add notice
     $(".wrap > h1").after(notice);
 
-    // Auto-dismiss after 5 seconds
     setTimeout(function () {
       notice.fadeOut(300, function () {
         $(this).remove();
       });
     }, 5000);
 
-    // Handle dismiss button click
     notice.find(".notice-dismiss").on("click", function () {
       notice.fadeOut(300, function () {
         $(this).remove();

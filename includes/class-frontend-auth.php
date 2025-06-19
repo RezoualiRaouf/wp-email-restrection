@@ -1,6 +1,6 @@
 <?php
 /**
- * Enhanced Frontend Authentication with Preview Mode
+ * Enhanced Frontend Authentication with Domain Setup Requirement
  *
  * @package WP_Email_Restriction
  */
@@ -50,7 +50,7 @@ class WP_Email_Restriction_Frontend_Auth {
             return;
         }
         
-        // PREVIEW MODE: Allow admins to see login page even when logged in
+        // Preview mode: Allow admins to see login page even when logged in
         if ($this->is_preview_mode() && $this->is_admin_user()) {
             $this->show_login_page();
             exit;
@@ -88,11 +88,24 @@ class WP_Email_Restriction_Frontend_Auth {
             }
         }
         
+        // Check if domain is configured
+        if (!$this->validator->is_domain_configured()) {
+            $this->show_setup_required_page();
+            exit;
+        }
+        
         // Check if user is authenticated through our system
         if (!$this->is_user_authenticated()) {
             $this->show_login_page();
             exit;
         }
+    }
+    
+    /**
+     * Show setup required page for unconfigured plugin
+     */
+    public function show_setup_required_page() {
+        include WP_EMAIL_RESTRICTION_PLUGIN_DIR . 'includes/frontend/setup-required-page.php';
     }
     
     /**
@@ -126,6 +139,12 @@ class WP_Email_Restriction_Frontend_Auth {
     }
     
     public function show_login_page() {
+        // Double-check domain is configured before showing login page
+        if (!$this->validator->is_domain_configured()) {
+            $this->show_setup_required_page();
+            exit;
+        }
+        
         $login_settings = get_option('wp_email_restriction_login_settings', [
             'title' => 'Access Restricted',
             'message' => 'Please login with your authorized email address to access this website.',
@@ -147,10 +166,19 @@ class WP_Email_Restriction_Frontend_Auth {
         $is_preview_mode = $this->is_preview_mode();
         $is_admin = $this->is_admin_user();
         
+        // Get allowed domain for display
+        $allowed_domain = $this->validator->get_allowed_domain();
+        
         include WP_EMAIL_RESTRICTION_PLUGIN_DIR . 'includes/frontend/login-page.php';
     }
     
     public function handle_login() {
+        // Check if domain is configured
+        if (!$this->validator->is_domain_configured()) {
+            wp_send_json_error(['message' => 'Plugin not configured. Please contact administrator.']);
+            return;
+        }
+        
         // Verify nonce
         if (!wp_verify_nonce($_POST['nonce'], 'restricted_login_nonce')) {
             wp_send_json_error(['message' => 'Security check failed']);
@@ -162,7 +190,7 @@ class WP_Email_Restriction_Frontend_Auth {
         $redirect_url = esc_url($_POST['redirect_url'] ?? home_url());
         $is_preview = $_POST['is_preview'] ?? false;
         
-        // PREVIEW MODE: Allow WordPress admin login
+        // Preview mode: Allow WordPress admin login
         if ($is_preview && $this->is_admin_user()) {
             $wp_user = wp_get_current_user();
             
@@ -258,7 +286,9 @@ class WP_Email_Restriction_Frontend_Auth {
                 'nonce' => wp_create_nonce('restricted_login_nonce'),
                 'logout_nonce' => wp_create_nonce('restricted_logout_nonce'),
                 'is_preview' => $this->is_preview_mode(),
-                'is_admin' => $this->is_admin_user()
+                'is_admin' => $this->is_admin_user(),
+                'domain_configured' => $this->validator->is_domain_configured(),
+                'allowed_domain' => $this->validator->get_allowed_domain()
             ]);
             
             wp_enqueue_style(
@@ -271,6 +301,11 @@ class WP_Email_Restriction_Frontend_Auth {
     }
     
     public function add_login_logout_link($items, $args) {
+        // Don't add menu items if domain not configured
+        if (!$this->validator->is_domain_configured()) {
+            return $items;
+        }
+        
         // Only add to primary menu (customize as needed)
         if ($args->theme_location !== 'primary') {
             return $items;

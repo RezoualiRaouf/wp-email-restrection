@@ -1,6 +1,6 @@
 <?php
 /**
- *  Admin functionality 
+ * Admin functionality with domain configuration
  *
  * @package WP_Email_Restriction
  */
@@ -11,12 +11,14 @@ if (!defined('ABSPATH')) {
 
 class WP_Email_Restriction_Admin {
     private $email_manager;
+    private $validator;
 
     public function __construct() {
         $this->email_manager = new WP_Email_Restriction_Email_Manager();
+        $this->validator = new WP_Email_Restriction_Validator();
         add_action('admin_menu', [$this, 'add_admin_menu']);
         add_action('admin_init', [$this, 'handle_actions']);
-        add_action('admin_init', [$this, 'handle_export']); // Add export handler
+        add_action('admin_init', [$this, 'handle_export']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_scripts']);
         $this->register_ajax_handlers();
     }
@@ -36,6 +38,14 @@ class WP_Email_Restriction_Admin {
     public function handle_actions() {
         if (!current_user_can('manage_options')) {
             return;
+        }
+
+        // Handle domain settings
+        if (
+            isset($_POST['save_domain_settings'], $_POST['domain_settings_nonce']) &&
+            wp_verify_nonce($_POST['domain_settings_nonce'], 'save_domain_settings')
+        ) {
+            $this->handle_domain_settings();
         }
 
         // Single delete
@@ -136,10 +146,31 @@ class WP_Email_Restriction_Admin {
     }
 
     /**
+     * Handle domain settings save
+     */
+    private function handle_domain_settings() {
+        $domain = sanitize_text_field($_POST['allowed_domain']);
+        $result = $this->validator->set_allowed_domain($domain);
+        
+        add_settings_error(
+            'mcp_email_messages',
+            $result['status'],
+            $result['message'],
+            $result['status'] === 'success' ? 'success' : 'error'
+        );
+
+        // If successful, redirect to avoid resubmission
+        if ($result['status'] === 'success') {
+            $redirect_url = admin_url('admin.php?page=wp-email-restriction&tab=settings&domain_saved=1');
+            wp_redirect($redirect_url);
+            exit;
+        }
+    }
+
+    /**
      * Handle CSV and JSON export functionality
      */
     public function handle_export() {
-        // Check if this is an export request
         if (
             isset($_GET['action']) && 
             in_array($_GET['action'], ['export_users', 'export_users_json']) &&
@@ -147,7 +178,12 @@ class WP_Email_Restriction_Admin {
             wp_verify_nonce($_GET['_wpnonce'], 'export_users') && 
             current_user_can('manage_options')
         ) {
-            // Determine export type based on action
+            // Check if domain is configured before allowing export
+            if (!$this->validator->is_domain_configured()) {
+                wp_redirect(admin_url('admin.php?page=wp-email-restriction&tab=settings&export_error=no_domain'));
+                exit;
+            }
+
             if ($_GET['action'] === 'export_users_json') {
                 $this->export_users_json();
             } else {
@@ -160,7 +196,6 @@ class WP_Email_Restriction_Admin {
      * Export users to CSV
      */
     private function export_users_csv() {
-        // Get users data
         $users_data = $this->get_export_data();
         
         if (empty($users_data)) {
@@ -168,22 +203,18 @@ class WP_Email_Restriction_Admin {
             return;
         }
         
-        // Generate filename with timestamp
-        $filename = 'email-restriction-users-' . date('Y-m-d-H-i-s') . '.csv';
+        $domain = $this->validator->get_allowed_domain_raw();
+        $filename = 'email-restriction-users-' . sanitize_file_name($domain) . '-' . date('Y-m-d-H-i-s') . '.csv';
         
-        // Set headers for CSV download
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
         header('Pragma: no-cache');
         header('Expires: 0');
         
-        // Create file pointer connected to the output stream
         $output = fopen('php://output', 'w');
         
-        // Add BOM for proper UTF-8 encoding in Excel
         fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
         
-        // Add CSV headers
         fputcsv($output, [
             'ID',
             'Name', 
@@ -191,7 +222,6 @@ class WP_Email_Restriction_Admin {
             'Created At'
         ]);
         
-        // Add user data
         foreach ($users_data as $user) {
             fputcsv($output, [
                 $user->id,
@@ -201,7 +231,6 @@ class WP_Email_Restriction_Admin {
             ]);
         }
         
-        // Close the file pointer
         fclose($output);
         exit;
     }
@@ -210,7 +239,6 @@ class WP_Email_Restriction_Admin {
      * Export users to JSON
      */
     private function export_users_json() {
-        // Get users data
         $users_data = $this->get_export_data();
         
         if (empty($users_data)) {
@@ -218,16 +246,14 @@ class WP_Email_Restriction_Admin {
             return;
         }
         
-        // Generate filename with timestamp
-        $filename = 'email-restriction-users-' . date('Y-m-d-H-i-s') . '.json';
+        $domain = $this->validator->get_allowed_domain_raw();
+        $filename = 'email-restriction-users-' . sanitize_file_name($domain) . '-' . date('Y-m-d-H-i-s') . '.json';
         
-        // Set headers for JSON download
         header('Content-Type: application/json; charset=utf-8');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
         header('Pragma: no-cache');
         header('Expires: 0');
         
-        // Prepare data structure for JSON
         $export_data = [
             'export_info' => [
                 'plugin' => 'WP Email Restriction',
@@ -236,20 +262,19 @@ class WP_Email_Restriction_Admin {
                 'exported_by' => wp_get_current_user()->user_login,
                 'total_users' => count($users_data),
                 'website' => get_site_url(),
+                'allowed_domain' => $this->validator->get_allowed_domain(),
                 'export_format' => 'json',
                 'timezone' => get_option('timezone_string') ?: 'UTC'
             ],
             'users' => []
         ];
         
-        // Convert user objects to arrays for better JSON structure
         foreach ($users_data as $user) {
             $export_data['users'][] = [
                 'id' => (int) $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
                 'created_at' => $user->created_at,
-                // Add formatted date for readability
                 'created_at_formatted' => date_i18n(
                     get_option('date_format') . ' ' . get_option('time_format'), 
                     strtotime($user->created_at)
@@ -258,13 +283,12 @@ class WP_Email_Restriction_Admin {
             ];
         }
         
-        // Output JSON with pretty printing for readability
         echo json_encode($export_data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         exit;
     }
 
     /**
-     * Get export data from database (shared method)
+     * Get export data from database
      */
     private function get_export_data() {
         global $wpdb;
@@ -276,7 +300,7 @@ class WP_Email_Restriction_Admin {
     }
 
     /**
-     * Handle the case when no users are found (shared method)
+     * Handle the case when no users are found
      */
     private function handle_no_users_error() {
         $redirect_url = admin_url('admin.php?page=wp-email-restriction&tab=uploads&export_status=no_users');
@@ -285,6 +309,11 @@ class WP_Email_Restriction_Admin {
     }
 
     private function process_file_upload() {
+        if (!$this->validator->is_domain_configured()) {
+            wp_redirect(admin_url('admin.php?page=wp-email-restriction&tab=settings&upload_error=no_domain'));
+            exit;
+        }
+
         $f = $_FILES['uploaded_file'];
         if ($f['error'] !== UPLOAD_ERR_OK) {
             wp_redirect(admin_url('admin.php?page=wp-email-restriction&tab=uploads&upload_status=error'));
@@ -328,7 +357,9 @@ class WP_Email_Restriction_Admin {
             'deleteConfirm' => __('Are you sure you want to delete this user?', 'wp-email-restriction'),
             'bulkDeleteConfirm' => __('Are you sure you want to delete these users?', 'wp-email-restriction'),
             'initialLoad' => 100,
-            'loadMoreSize' => 50
+            'loadMoreSize' => 50,
+            'domainConfigured' => $this->validator->is_domain_configured(),
+            'allowedDomain' => $this->validator->get_allowed_domain()
         ]);
         
         if ($temp) {
@@ -348,10 +379,30 @@ class WP_Email_Restriction_Admin {
         add_action('wp_ajax_get_restricted_users_paginated', [$this, 'ajax_get_users_paginated']);
         add_action('wp_ajax_delete_restricted_user', [$this, 'ajax_delete_user']);
         add_action('wp_ajax_bulk_delete_restricted_users', [$this, 'ajax_bulk_delete_users']);
+        add_action('wp_ajax_validate_domain', [$this, 'ajax_validate_domain']);
+    }
+    
+    public function ajax_validate_domain() {
+        check_ajax_referer('wp_email_restriction_nonce', 'security');
+        
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => 'Insufficient permissions']);
+            return;
+        }
+        
+        $domain = sanitize_text_field($_POST['domain'] ?? '');
+        $result = $this->validator->validate_domain_format($domain);
+        
+        wp_send_json($result);
     }
     
     public function ajax_get_users_paginated() {
         check_ajax_referer('wp_email_restriction_nonce', 'security');
+        
+        if (!$this->validator->is_domain_configured()) {
+            wp_send_json_error(['message' => 'Domain not configured']);
+            return;
+        }
         
         $page = isset($_POST['page']) ? intval($_POST['page']) : 1;
         $per_page = isset($_POST['per_page']) ? intval($_POST['per_page']) : 50;
@@ -374,6 +425,11 @@ class WP_Email_Restriction_Admin {
     
     public function ajax_get_users() {
         check_ajax_referer('wp_email_restriction_nonce', 'security');
+        
+        if (!$this->validator->is_domain_configured()) {
+            wp_send_json_error(['message' => 'Domain not configured']);
+            return;
+        }
         
         $page = isset($_POST['page']) ? intval($_POST['page']) : 1;
         $per_page = isset($_POST['per_page']) ? intval($_POST['per_page']) : 25;
@@ -461,15 +517,23 @@ class WP_Email_Restriction_Admin {
         $search_term  = sanitize_text_field($_POST['search_term']  ?? '');
         $search_field = sanitize_text_field($_POST['search_field'] ?? 'all');
         
-        // Use paginated method for initial load (100 users)
-        $user_data = $this->email_manager->get_users_paginated(
-            1, // First page
-            100, // 100 users initially
-            $search_term,
-            $search_field,
-            'id',
-            'DESC'
-        );
+        if ($this->validator->is_domain_configured()) {
+            $user_data = $this->email_manager->get_users_paginated(
+                1,
+                100,
+                $search_term,
+                $search_field,
+                'id',
+                'DESC'
+            );
+        } else {
+            $user_data = [
+                'users' => [],
+                'total' => 0,
+                'total_pages' => 0,
+                'showing' => 0
+            ];
+        }
         
         include WP_EMAIL_RESTRICTION_PLUGIN_DIR . 'includes/admin/views/admin-page.php';
     }
@@ -480,7 +544,6 @@ class WP_Email_Restriction_Admin {
         $total = $user_data['total'];
         $total_pages = $user_data['total_pages'];
         
-        // Show transient notices
         if ($n = get_transient('mcp_email_notice_delete')) {
             echo "<div class='notice notice-success'><p>" . esc_html($n) . "</p></div>";
             delete_transient('mcp_email_notice_delete');
@@ -548,17 +611,15 @@ class WP_Email_Restriction_Admin {
                 </table>
             </form>
             
-            <!-- Load More Button -->
-            <?php if ($shown < $total) : ?>
+              <?php if ($shown < $total) : ?>
                 <div class="load-more-container" style="text-align: center; margin: 20px 0;">
                     <button type="button" id="load-more-users" class="button button-primary">
                         <?php printf(__('Load More Users (%d remaining)', 'wp-email-restriction'), $total - $shown); ?>
                     </button>
                 </div>
             <?php endif; ?>
-
-            <!-- Initialize pagination data for JavaScript -->
-            <script>
+            
+        <script>
             if (typeof window.wpEmailRestrictionPagination === 'undefined') {
                 window.wpEmailRestrictionPagination = {
                     loadedUsers: <?php echo $shown; ?>,
@@ -579,7 +640,7 @@ class WP_Email_Restriction_Admin {
                     <?php else : ?>
                         <?php _e('No users found. Start by adding some users!', 'wp-email-restriction'); ?>
                         <br><br>
-                        <a href="<?php echo esc_url(admin_url('admin.php?page=wp-email-restriction&tab=settings')); ?>" 
+                        <a href="<?php echo esc_url(admin_url('admin.php?page=wp-email-restriction&tab=main')); ?>" 
                            class="button button-primary"><?php _e('Add Users', 'wp-email-restriction'); ?></a>
                     <?php endif; ?>
                 </p>
