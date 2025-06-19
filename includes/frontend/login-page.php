@@ -1,6 +1,6 @@
 <?php
 /**
- * Enhanced frontend login page template with preview mode
+ * Enhanced frontend login page template with dynamic domain
  * 
  * @package WP_Email_Restriction
  */
@@ -23,130 +23,9 @@ if (!defined('ABSPATH')) {
             --form-background: <?php echo esc_attr($login_settings['form_background']); ?>;
             --text-color: <?php echo esc_attr($login_settings['text_color']); ?>;
         }
-        
-        /* Prevent caching issues */
-        body.restricted-login-page * {
-            box-sizing: border-box;
-        }
-        
-        /* 🆕 Preview Mode Banner */
-        .preview-banner {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
-            color: white;
-            padding: 12px 20px;
-            text-align: center;
-            font-weight: 600;
-            z-index: 10000;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            animation: slideDown 0.5s ease-out;
-        }
-        
-        .preview-banner .banner-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        
-        .preview-banner .banner-message {
-            flex: 1;
-            text-align: center;
-        }
-        
-        .preview-banner a {
-            color: white;
-            text-decoration: none;
-            font-weight: bold;
-            padding: 5px 10px;
-            border-radius: 4px;
-            background: rgba(255,255,255,0.2);
-            transition: background 0.3s ease;
-        }
-        
-        .preview-banner a:hover {
-            background: rgba(255,255,255,0.3);
-        }
-        
-        body.has-preview-banner {
-            padding-top: 60px;
-        }
-        
-        @keyframes slideDown {
-            from {
-                transform: translateY(-100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-        
-        /* 🆕 Admin Testing Instructions */
-        .test-user-hint {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 15px;
-            margin: 15px 30px;
-            border-radius: 8px;
-            text-align: center;
-            animation: pulseGlow 2s ease-in-out infinite alternate;
-        }
-        
-        .test-user-hint h4 {
-            margin: 0 0 10px;
-            font-size: 16px;
-            font-weight: 600;
-        }
-        
-        .test-user-hint p {
-            margin: 5px 0;
-            opacity: 0.9;
-        }
-        
-        .test-user-hint code {
-            background: rgba(255,255,255,0.2);
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-family: monospace;
-            color: #fff;
-            font-weight: bold;
-        }
-        
-        @keyframes pulseGlow {
-            from { 
-                box-shadow: 0 0 15px rgba(102, 126, 234, 0.4);
-                transform: scale(1);
-            }
-            to { 
-                box-shadow: 0 0 25px rgba(118, 75, 162, 0.6);
-                transform: scale(1.02);
-            }
-        }
-        
-        /* Mobile responsive for preview banner */
-        @media (max-width: 768px) {
-            .preview-banner .banner-content {
-                flex-direction: column;
-                gap: 10px;
-            }
-            
-            .preview-banner .banner-message {
-                font-size: 14px;
-            }
-            
-            body.has-preview-banner {
-                padding-top: 80px;
-            }
-        }
     </style>
 </head>
-<body class="restricted-login-page <?php echo $is_preview_mode ? 'has-preview-banner' : ''; ?>">
+<body class="restricted-login-page">
     
     <div class="login-container">
         <div class="login-form-wrapper">
@@ -165,7 +44,7 @@ if (!defined('ABSPATH')) {
                 <div class="form-group">
                     <label for="email">Email Address</label>
                     <input type="email" id="email" name="email" required 
-                           placeholder="your.name@univ-bouira.dz"
+                           placeholder="your.name<?php echo esc_attr($allowed_domain); ?>"
                            <?php if ($is_preview_mode && $is_admin) : ?>
                            value="<?php echo esc_attr(wp_get_current_user()->user_email); ?>"
                            <?php endif; ?>>
@@ -175,6 +54,8 @@ if (!defined('ABSPATH')) {
                     <label for="password">Password</label>
                     <input type="password" id="password" name="password" required
                            <?php if ($is_preview_mode && $is_admin) : ?>
+                           placeholder="Enter your WordPress password"
+                           <?php else : ?>
                            placeholder="Enter your password"
                            <?php endif; ?>>
                 </div>
@@ -183,6 +64,8 @@ if (!defined('ABSPATH')) {
                     <button type="submit" class="login-button">
                         <span class="button-text">
                             <?php if ($is_preview_mode && $is_admin) : ?>
+                                Test Login
+                            <?php else : ?>
                                 Login
                             <?php endif; ?>
                         </span>
@@ -206,7 +89,7 @@ if (!defined('ABSPATH')) {
             <div id="login-message" class="login-message" style="display: none;"></div>
             
             <div class="login-footer">
-                <p>Access restricted to authorized @univ-bouira.dz email addresses only.</p>
+                <p>Access restricted to authorized <?php echo esc_html($allowed_domain); ?> email addresses only.</p>
                 <?php if ($is_preview_mode) : ?>
                     <p><a href="<?php echo admin_url('admin.php?page=wp-email-restriction&tab=login-settings'); ?>">&larr; Back to Login Settings</a></p>
                 <?php else : ?>
@@ -217,25 +100,21 @@ if (!defined('ABSPATH')) {
     </div>
     
     <script>
-        // Auto-focus appropriate field for better UX
         document.addEventListener('DOMContentLoaded', function() {
             var emailField = document.getElementById('email');
             var passwordField = document.getElementById('password');
             
             <?php if ($is_preview_mode && $is_admin) : ?>
-                // In preview mode, focus password field since email is pre-filled
                 if (passwordField) {
                     passwordField.focus();
                 }
             <?php else : ?>
-                // Normal mode, focus email field
                 if (emailField && !emailField.value) {
                     emailField.focus();
                 }
             <?php endif; ?>
         });
         
-        // Fallback for browsers with disabled JavaScript
         if (typeof jQuery === 'undefined') {
             document.getElementById('restricted-login-form').innerHTML += 
                 '<div style="color: red; text-align: center; margin-top: 15px;">JavaScript is required for login functionality.</div>';
