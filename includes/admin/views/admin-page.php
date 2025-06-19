@@ -190,8 +190,6 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
                 <h4>CSV Format</h4>
               </div>
               
-              <p>Perfect for Excel, Google Sheets, and other spreadsheet applications. Easy to view and edit.</p>
-              
               <a href="<?php echo wp_nonce_url(
                      admin_url('admin.php?page=wp-email-restriction&action=export_users&tab=uploads'), 
                      'export_users'
@@ -212,8 +210,6 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
                 <h4>JSON Format</h4>
               </div>
               
-              <p>Structured data format perfect for developers and API integrations. Includes metadata.</p>
-              
               <a href="<?php echo wp_nonce_url(
                      admin_url('admin.php?page=wp-email-restriction&action=export_users_json&tab=uploads'), 
                      'export_users'
@@ -233,10 +229,6 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
             <span class="description" style="margin: 0; font-weight: 500;">
               <?php printf(__('%d users available for export', 'wp-email-restriction'), $user_data['total']); ?>
             </span>
-            
-            <span style="color: #2271b1; font-size: 12px;">
-              <?php printf(__('Last updated: %s', 'wp-email-restriction'), date_i18n(get_option('date_format') . ' ' . get_option('time_format'))); ?>
-            </span>
           </div>
           
           <!-- Error/Success Messages -->
@@ -254,7 +246,6 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
   <?php if ($active_tab === 'settings') : ?>
     <div class="card">
       <h2><?php _e('Plugin Settings', 'wp-email-restriction'); ?></h2>
-      <p><?php _e('Configure general plugin settings here.', 'wp-email-restriction'); ?></p>
       
       <table class="form-table">
         <tr>
@@ -279,7 +270,6 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
   <?php if ($active_tab === 'login-settings') : ?>
     <div class="card">
       <h2><?php _e('Customize Login Page', 'wp-email-restriction'); ?></h2>
-      <p><?php _e('Customize the appearance and content of your login page.', 'wp-email-restriction'); ?></p>
       
       <form method="post" action="">
         <?php wp_nonce_field('save_login_settings', 'login_settings_nonce'); ?>
@@ -352,11 +342,10 @@ $login_settings = get_option('wp_email_restriction_login_settings', [
       
       <div style="margin-top: 20px; padding: 15px; background: #f0f8ff; border-left: 4px solid #2271b1; border-radius: 4px;">
         <h4 style="margin-top: 0;"><?php _e('Preview Your Login Page'); ?></h4>
-        <p><?php _e('See how your login page looks with the current settings:'); ?></p>
         <a href="<?php echo home_url('?restricted_login=preview'); ?>" target="_blank" 
            class="button button-primary">
            <span class="dashicons dashicons-external" style="margin-right: 5px;"></span>
-           <?php _e('Preview Login Page'); ?>
+           <?php _e('Login Page'); ?>
         </a>
       </div>
     </div>
