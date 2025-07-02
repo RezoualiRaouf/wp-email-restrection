@@ -55,22 +55,23 @@ WP Email Restriction allows site owners to limit access and registrations to spe
 
 ## Installation
 
-### 1. Automatic Installation  
+### 1. Automatic Installation  (not available yet!)
 1. Go to **Plugins → Add New**  
 2. Search for **WP Email Restriction**  
 3. Click **Install Now**, then **Activate**
 
-### 2. Manual Installation  
-1. Download the plugin ZIP  
+### 2. Manual Installation
+1. Download the plugin ZIP or clone the epo
 2. Upload folder to `/wp-content/plugins/`  
 3. Activate via **Plugins** menu  
+
 
 ---
 
 ## Setup Guide
 
 1. After activation, go to **Settings → Email Restriction**  
-2. Add one or more allowed domains (without `@`)  
+2. Add your domain (without `@`)  
 3. Save changes  
 4. Restriction applies to both registration and login  
 
