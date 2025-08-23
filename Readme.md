@@ -1,9 +1,7 @@
 
 <p align="center">
-  <img src="assets/logo/wp_email_restrection_logo.png" alt="WP Email Restriction Logo" width="200"/>
+  <img src="/assets/logo/wp_email_restrection_logo.png"width="200"/>
 </p>
-
-# WP Email Restriction
 
 # WP Email Restriction
 
